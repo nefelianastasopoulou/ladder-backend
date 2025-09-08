@@ -1,5 +1,4 @@
 const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
@@ -8,6 +7,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { fileTypeFromFile } = require('file-type');
+const db = require('./database');
 require('dotenv').config();
 
 const app = express();
@@ -166,15 +166,7 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static('uploads'));
 
-// Database connection
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-  if (err) {
-    console.error('Error opening database:', err);
-    process.exit(1);
-  } else {
-    console.log('Connected to SQLite database');
-  }
-});
+// Database connection is now handled in database.js
 
 // Initialize database using safe migration
 const DatabaseMigrator = require('./database-migrator');
