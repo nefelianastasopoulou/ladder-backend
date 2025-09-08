@@ -1,0 +1,10 @@
+node_modules/
+.env
+*.log
+uploads/
+database.db
+database.sqlite
+backups/
+.DS_Store
+*.tmp
+SECRETS.md
