@@ -229,6 +229,35 @@ app.get('/debug/db', (req, res) => {
   });
 });
 
+// Debug route to test signup query
+app.post('/debug/signup', (req, res) => {
+  const { email, password, full_name, username } = req.body;
+  console.log('Testing signup query...');
+  console.log('Email:', email);
+  console.log('Username:', username);
+  
+  // Test the exact query from signup
+  db.get('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username], (err, row) => {
+    if (err) {
+      console.error('Signup query error:', err);
+      res.json({ 
+        status: 'ERROR', 
+        error: err.message,
+        query: 'SELECT id FROM users WHERE email = $1 OR username = $2',
+        params: [email, username]
+      });
+    } else {
+      console.log('Signup query successful:', row);
+      res.json({ 
+        status: 'OK', 
+        existing_user: !!row,
+        query: 'SELECT id FROM users WHERE email = $1 OR username = $2',
+        params: [email, username]
+      });
+    }
+  });
+});
+
 // Routes
 app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
   db.all(
