@@ -73,7 +73,7 @@ const checkPhotoUploadRestrictions = async (req, res, next) => {
     
     // Get user's photo upload settings
     db.get(
-      'SELECT photo_upload_restriction, allowed_photo_sources FROM user_settings WHERE user_id = ?',
+      'SELECT photo_upload_restriction, allowed_photo_sources FROM user_settings WHERE user_id = $1',
       [userId],
       (err, settings) => {
         if (err) {
@@ -231,11 +231,11 @@ app.get('/api/search/users', authenticateToken, (req, res) => {
   db.all(
     `SELECT id, email, full_name, username, is_admin, created_at 
      FROM users 
-     WHERE full_name LIKE ? OR username LIKE ?
+     WHERE full_name LIKE $1 OR username LIKE $2
      ORDER BY 
        CASE 
-         WHEN full_name LIKE ? THEN 1
-         WHEN username LIKE ? THEN 2
+         WHEN full_name LIKE $3 THEN 1
+         WHEN username LIKE $4 THEN 2
          ELSE 3
        END,
        created_at DESC
@@ -267,11 +267,11 @@ app.get('/api/search/posts', authenticateToken, (req, res) => {
      FROM posts p
      LEFT JOIN users u ON p.author_id = u.id
      LEFT JOIN communities c ON p.community_id = c.id
-     WHERE p.is_published = 1 AND (p.title LIKE ? OR p.content LIKE ?)
+     WHERE p.is_published = 1 AND (p.title LIKE $1 OR p.content LIKE $2)
      ORDER BY 
        CASE 
-         WHEN p.title LIKE ? THEN 1
-         WHEN p.content LIKE ? THEN 2
+         WHEN p.title LIKE $3 THEN 1
+         WHEN p.content LIKE $4 THEN 2
          ELSE 3
        END,
        p.created_at DESC
@@ -301,11 +301,11 @@ app.get('/api/search/communities', authenticateToken, (req, res) => {
             u.full_name as creator_name, u.username as creator_username
      FROM communities c
      LEFT JOIN users u ON c.created_by = u.id
-     WHERE c.is_public = 1 AND (c.name LIKE ? OR c.description LIKE ?)
+     WHERE c.is_public = 1 AND (c.name LIKE $1 OR c.description LIKE $2)
      ORDER BY 
        CASE 
-         WHEN c.name LIKE ? THEN 1
-         WHEN c.description LIKE ? THEN 2
+         WHEN c.name LIKE $3 THEN 1
+         WHEN c.description LIKE $4 THEN 2
          ELSE 3
        END,
        c.member_count DESC, c.created_at DESC
@@ -413,7 +413,7 @@ app.post('/api/auth/signup', async (req, res) => {
     }
 
     // Check if user already exists
-    db.get('SELECT id FROM users WHERE email = ? OR username = ?', [email, username], async (err, row) => {
+    db.get('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username], async (err, row) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -426,7 +426,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
       // Insert user
       db.run(
-        'INSERT INTO users (email, password, full_name, username, is_admin) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5)',
         [email, hashedPassword, full_name, username, 0],
         function(err) {
           if (err) {
@@ -463,8 +463,8 @@ app.post('/api/auth/signin', (req, res) => {
 
   // Determine if login is by email or username
   const query = email && email.includes('@')
-    ? 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE email = ?'
-    : 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE username = ?';
+    ? 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE email = $1'
+    : 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE username = $1';
   
   const queryParam = email && email.includes('@') ? email : username;
 
@@ -504,7 +504,7 @@ app.post('/api/auth/make-admin', authenticateToken, requireAdmin, (req, res) => 
   }
 
   db.run(
-    'UPDATE users SET is_admin = 1 WHERE id = ?',
+    'UPDATE users SET is_admin = 1 WHERE id = $1',
     [user_id],
     function(err) {
       if (err) {
@@ -529,7 +529,7 @@ app.delete('/api/users/:userId', authenticateToken, requireAdmin, (req, res) => 
   }
 
   db.run(
-    'DELETE FROM users WHERE id = ?',
+    'DELETE FROM users WHERE id = $1',
     [userId],
     function(err) {
       if (err) {
@@ -546,7 +546,7 @@ app.delete('/api/users/:userId', authenticateToken, requireAdmin, (req, res) => 
 // Profile endpoint
 app.get('/api/profile', authenticateToken, (req, res) => {
   db.get(
-    'SELECT id, email, full_name, username, is_admin, created_at FROM users WHERE id = ?',
+    'SELECT id, email, full_name, username, is_admin, created_at FROM users WHERE id = $1',
     [req.user.id],
     (err, user) => {
       if (err) {
@@ -566,7 +566,7 @@ app.put('/api/profile', authenticateToken, (req, res) => {
   
   // Check if username is being changed and if it already exists
   if (username) {
-    db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, req.user.id], (err, row) => {
+    db.get('SELECT id FROM users WHERE username = $1 AND id != $2', [username, req.user.id], (err, row) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -613,9 +613,14 @@ app.put('/api/profile', authenticateToken, (req, res) => {
         
         // Update profile table if it exists
         db.run(
-          `INSERT OR REPLACE INTO user_profiles (
+          `INSERT INTO user_profiles (
             user_id, bio, location, field, avatar_url
-          ) VALUES (?, ?, ?, ?, ?)`,
+          ) VALUES ($1, $2, $3, $4, $5)
+          ON CONFLICT (user_id) DO UPDATE SET
+            bio = EXCLUDED.bio,
+            location = EXCLUDED.location,
+            field = EXCLUDED.field,
+            avatar_url = EXCLUDED.avatar_url`,
           [req.user.id, bio || '', location || '', field || '', avatar_url || ''],
           (err) => {
             if (err) {
@@ -632,7 +637,7 @@ app.put('/api/profile', authenticateToken, (req, res) => {
 // Settings endpoints
 app.get('/api/settings', authenticateToken, (req, res) => {
   db.get(
-    'SELECT * FROM user_settings WHERE user_id = ?',
+    'SELECT * FROM user_settings WHERE user_id = $1',
     [req.user.id],
     (err, settings) => {
       if (err) {
@@ -662,12 +667,25 @@ app.put('/api/settings', authenticateToken, (req, res) => {
   const settings = req.body;
   
   db.run(
-    `INSERT OR REPLACE INTO user_settings (
+    `INSERT INTO user_settings (
       user_id, email_notifications, push_notifications, sound_vibration, 
       location_services, language, show_activity_status, show_last_seen,
       allow_direct_messages, allow_connection_requests, community_posts_visibility,
       photo_upload_restriction, allowed_photo_sources
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+    ON CONFLICT (user_id) DO UPDATE SET
+      email_notifications = EXCLUDED.email_notifications,
+      push_notifications = EXCLUDED.push_notifications,
+      sound_vibration = EXCLUDED.sound_vibration,
+      location_services = EXCLUDED.location_services,
+      language = EXCLUDED.language,
+      show_activity_status = EXCLUDED.show_activity_status,
+      show_last_seen = EXCLUDED.show_last_seen,
+      allow_direct_messages = EXCLUDED.allow_direct_messages,
+      allow_connection_requests = EXCLUDED.allow_connection_requests,
+      community_posts_visibility = EXCLUDED.community_posts_visibility,
+      photo_upload_restriction = EXCLUDED.photo_upload_restriction,
+      allowed_photo_sources = EXCLUDED.allowed_photo_sources`,
     [
       req.user.id,
       settings.email_notifications,
@@ -707,7 +725,7 @@ app.get('/api/opportunities', (req, res) => {
 
 app.get('/api/opportunities/my', authenticateToken, (req, res) => {
   db.all(
-    'SELECT * FROM opportunities WHERE created_by = ? ORDER BY created_at DESC',
+    'SELECT * FROM opportunities WHERE created_by = $1 ORDER BY created_at DESC',
     [req.user.id],
     (err, opportunities) => {
       if (err) {
@@ -724,7 +742,7 @@ app.get('/api/applications', authenticateToken, (req, res) => {
     `SELECT a.*, o.title, o.description, o.category, o.location 
      FROM applications a 
      JOIN opportunities o ON a.opportunity_id = o.id 
-     WHERE a.user_id = ? 
+     WHERE a.user_id = $1 
      ORDER BY a.applied_date DESC`,
     [req.user.id],
     (err, applications) => {
@@ -741,7 +759,7 @@ app.get('/api/favorites', authenticateToken, (req, res) => {
   db.all(
     `SELECT o.* FROM opportunities o 
      JOIN favorites f ON o.id = f.opportunity_id 
-     WHERE f.user_id = ? 
+     WHERE f.user_id = $1 
      ORDER BY f.created_at DESC`,
     [req.user.id],
     (err, favorites) => {
@@ -762,7 +780,7 @@ app.get('/api/communities', authenticateToken, (req, res) => {
             CASE WHEN cm.user_id IS NOT NULL THEN 1 ELSE 0 END as is_member
      FROM communities c
      LEFT JOIN users u ON c.created_by = u.id
-     LEFT JOIN community_members cm ON c.id = cm.community_id AND cm.user_id = ?
+     LEFT JOIN community_members cm ON c.id = cm.community_id AND cm.user_id = $1
      WHERE c.is_public = 1
      ORDER BY c.member_count DESC, c.created_at DESC`,
     [userId],
@@ -784,7 +802,7 @@ app.get('/api/communities/:id/posts', authenticateToken, (req, res) => {
             u.full_name as author_name, u.username as author_username
      FROM posts p
      LEFT JOIN users u ON p.author_id = u.id
-     WHERE p.community_id = ?
+     WHERE p.community_id = $1
      ORDER BY p.created_at DESC`,
     [communityId],
     (err, posts) => {
@@ -826,7 +844,7 @@ app.post('/api/communities/:id/posts', authenticateToken, checkPhotoUploadRestri
   
   // Check if user is a member of the community
   db.get(
-    'SELECT id FROM community_members WHERE community_id = ? AND user_id = ?',
+    'SELECT id FROM community_members WHERE community_id = $1 AND user_id = $2',
     [communityId, userId],
     (err, membership) => {
       if (err) {
@@ -839,7 +857,7 @@ app.post('/api/communities/:id/posts', authenticateToken, checkPhotoUploadRestri
       
       // Create the post
       db.run(
-        'INSERT INTO posts (title, content, author_id, community_id, image_url, likes_count, comments_count, created_at) VALUES (?, ?, ?, ?, ?, 0, 0, CURRENT_TIMESTAMP)',
+        'INSERT INTO posts (title, content, author_id, community_id, image_url, likes_count, comments_count, created_at) VALUES ($1, $2, $3, $4, $5, 0, 0, CURRENT_TIMESTAMP)',
         [title, content, userId, communityId, imageUrl],
         function(err) {
           if (err) {
@@ -849,7 +867,7 @@ app.post('/api/communities/:id/posts', authenticateToken, checkPhotoUploadRestri
           
           // Update community post count
           db.run(
-            'UPDATE communities SET post_count = post_count + 1 WHERE id = ?',
+            'UPDATE communities SET post_count = post_count + 1 WHERE id = $1',
             [communityId],
             (err) => {
               if (err) {
@@ -897,7 +915,7 @@ app.post('/api/posts', authenticateToken, checkPhotoUploadRestrictions, (req, re
   
   // Create the post (community_id will be NULL for platform-wide posts)
   db.run(
-    'INSERT INTO posts (title, content, author_id, community_id, image_url, likes_count, comments_count, created_at) VALUES (?, ?, ?, NULL, ?, 0, 0, CURRENT_TIMESTAMP)',
+    'INSERT INTO posts (title, content, author_id, community_id, image_url, likes_count, comments_count, created_at) VALUES ($1, $2, $3, NULL, $4, 0, 0, CURRENT_TIMESTAMP)',
     [title, content, userId, imageUrl],
     function(err) {
       if (err) {
@@ -920,7 +938,7 @@ app.put('/api/communities/:id', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is the creator
-  db.get('SELECT created_by FROM communities WHERE id = ?', [communityId], (err, community) => {
+  db.get('SELECT created_by FROM communities WHERE id = $1', [communityId], (err, community) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -933,7 +951,7 @@ app.put('/api/communities/:id', authenticateToken, (req, res) => {
     
     // Check if new name already exists (if name is being changed)
     if (name) {
-      db.get('SELECT id FROM communities WHERE name = ? AND id != ?', [name, communityId], (err, existingCommunity) => {
+      db.get('SELECT id FROM communities WHERE name = $1 AND id != $2', [name, communityId], (err, existingCommunity) => {
         if (err) {
           return res.status(500).json({ error: 'Database error' });
         }
@@ -992,7 +1010,7 @@ app.post('/api/communities', authenticateToken, (req, res) => {
   }
   
   // Check if community name already exists
-  db.get('SELECT id FROM communities WHERE name = ?', [name], (err, row) => {
+  db.get('SELECT id FROM communities WHERE name = $1', [name], (err, row) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -1002,7 +1020,7 @@ app.post('/api/communities', authenticateToken, (req, res) => {
     
     // Create community
     db.run(
-      'INSERT INTO communities (name, description, category, created_by, member_count, is_public) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO communities (name, description, category, created_by, member_count, is_public) VALUES ($1, $2, $3, $4, $5, $6)',
       [name, description, category || '', req.user.id, 1, 1],
       function(err) {
         if (err) {
@@ -1011,7 +1029,7 @@ app.post('/api/communities', authenticateToken, (req, res) => {
         
         // Add creator as first member
         db.run(
-          'INSERT INTO community_members (user_id, community_id, role) VALUES (?, ?, ?)',
+          'INSERT INTO community_members (user_id, community_id, role) VALUES ($1, $2, $3)',
           [req.user.id, this.lastID, 'admin'],
           (err) => {
             if (err) {
@@ -1043,7 +1061,7 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   // Check if community exists
-  db.get('SELECT * FROM communities WHERE id = ?', [communityId], (err, community) => {
+  db.get('SELECT * FROM communities WHERE id = $1', [communityId], (err, community) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -1052,7 +1070,7 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
     }
 
     // Check if user is already a member
-    db.get('SELECT * FROM community_members WHERE user_id = ? AND community_id = ?', [userId, communityId], (err, existingMember) => {
+    db.get('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, existingMember) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
@@ -1062,7 +1080,7 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
 
       // Add user to community
       db.run(
-        'INSERT INTO community_members (user_id, community_id, role) VALUES (?, ?, ?)',
+        'INSERT INTO community_members (user_id, community_id, role) VALUES ($1, $2, $3)',
         [userId, communityId, 'member'],
         function(err) {
           if (err) {
@@ -1071,7 +1089,7 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
 
           // Update member count
           db.run(
-            'UPDATE communities SET member_count = member_count + 1 WHERE id = ?',
+            'UPDATE communities SET member_count = member_count + 1 WHERE id = $1',
             [communityId],
             (err) => {
               if (err) {
@@ -1100,7 +1118,7 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   // Check if user is a member
-  db.get('SELECT * FROM community_members WHERE user_id = ? AND community_id = ?', [userId, communityId], (err, member) => {
+  db.get('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, member) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
@@ -1110,7 +1128,7 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
 
     // Remove user from community
     db.run(
-      'DELETE FROM community_members WHERE user_id = ? AND community_id = ?',
+      'DELETE FROM community_members WHERE user_id = $1 AND community_id = $2',
       [userId, communityId],
       function(err) {
         if (err) {
@@ -1119,7 +1137,7 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
 
         // Update member count
         db.run(
-          'UPDATE communities SET member_count = member_count - 1 WHERE id = ?',
+          'UPDATE communities SET member_count = member_count - 1 WHERE id = $1',
           [communityId],
           (err) => {
             if (err) {
@@ -1181,7 +1199,7 @@ app.get('/api/conversations', authenticateToken, (req, res) => {
       name: row.name || row.other_user_name,
       other_user: {
         id: row.other_user_username ? 
-          db.get('SELECT id FROM users WHERE username = ?', [row.other_user_username], (err, user) => {
+          db.get('SELECT id FROM users WHERE username = $1', [row.other_user_username], (err, user) => {
             if (err) return null;
             return user.id;
           }) : null,
@@ -1235,7 +1253,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
     
     // Create new conversation
     db.run(
-      'INSERT INTO conversations (type, created_by) VALUES (?, ?)',
+      'INSERT INTO conversations (type, created_by) VALUES ($1, $2)',
       ['individual', userId],
       function(err) {
         if (err) {
@@ -1247,7 +1265,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
         
         // Add participants
         db.run(
-          'INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)',
+          'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)',
           [conversationId, userId],
           (err) => {
             if (err) {
@@ -1258,7 +1276,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
         );
         
         db.run(
-          'INSERT INTO conversation_participants (conversation_id, user_id) VALUES (?, ?)',
+          'INSERT INTO conversation_participants (conversation_id, user_id) VALUES ($1, $2)',
           [conversationId, other_user_id],
           (err) => {
             if (err) {
@@ -1284,7 +1302,7 @@ app.get('/api/conversations/:id/messages', authenticateToken, (req, res) => {
   
   // Verify user is participant
   db.get(
-    'SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?',
+    'SELECT id FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
     [conversationId, userId],
     (err, participant) => {
       if (err) {
@@ -1313,7 +1331,7 @@ app.get('/api/conversations/:id/messages', authenticateToken, (req, res) => {
         
         // Mark messages as read
         db.run(
-          'UPDATE messages SET is_read = 1 WHERE conversation_id = ? AND sender_id != ?',
+          'UPDATE messages SET is_read = 1 WHERE conversation_id = $1 AND sender_id != $2',
           [conversationId, userId],
           (err) => {
             if (err) {
@@ -1340,7 +1358,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
   
   // Verify user is participant
   db.get(
-    'SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?',
+    'SELECT id FROM conversation_participants WHERE conversation_id = $1 AND user_id = $2',
     [conversationId, userId],
     (err, participant) => {
       if (err) {
@@ -1354,7 +1372,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
       
       // Insert message
       db.run(
-        'INSERT INTO messages (conversation_id, sender_id, content, message_type) VALUES (?, ?, ?, ?)',
+        'INSERT INTO messages (conversation_id, sender_id, content, message_type) VALUES ($1, $2, $3, $4)',
         [conversationId, userId, content.trim(), message_type],
         function(err) {
           if (err) {
@@ -1364,7 +1382,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
           
           // Update conversation timestamp
           db.run(
-            'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            'UPDATE conversations SET updated_at = CURRENT_TIMESTAMP WHERE id = $1',
             [conversationId],
             (err) => {
               if (err) {
@@ -1391,7 +1409,7 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
   const communityId = req.params.id;
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -1407,13 +1425,13 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
       db.run('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE type = "community" AND name LIKE ?)', [`%Community ${communityId}%`]);
       
       // Delete community members
-      db.run('DELETE FROM community_members WHERE community_id = ?', [communityId]);
+      db.run('DELETE FROM community_members WHERE community_id = $1', [communityId]);
       
       // Delete posts in community
-      db.run('DELETE FROM posts WHERE community_id = ?', [communityId]);
+      db.run('DELETE FROM posts WHERE community_id = $1', [communityId]);
       
       // Delete the community
-      db.run('DELETE FROM communities WHERE id = ?', [communityId], function(err) {
+      db.run('DELETE FROM communities WHERE id = $1', [communityId], function(err) {
         if (err) {
           console.error('Error deleting community:', err);
           return res.status(500).json({ error: 'Database error' });
@@ -1435,7 +1453,7 @@ app.delete('/api/admin/posts/:id', authenticateToken, (req, res) => {
   const postId = req.params.id;
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -1446,7 +1464,7 @@ app.delete('/api/admin/posts/:id', authenticateToken, (req, res) => {
     }
     
     // Delete the post
-    db.run('DELETE FROM posts WHERE id = ?', [postId], function(err) {
+    db.run('DELETE FROM posts WHERE id = $1', [postId], function(err) {
       if (err) {
         console.error('Error deleting post:', err);
         return res.status(500).json({ error: 'Database error' });
@@ -1472,7 +1490,7 @@ app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
   }
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [adminId], (err, admin) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [adminId], (err, admin) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -1485,37 +1503,37 @@ app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
     // Delete user and related data
     db.serialize(() => {
       // Delete user's messages
-      db.run('DELETE FROM messages WHERE sender_id = ?', [userId]);
+      db.run('DELETE FROM messages WHERE sender_id = $1', [userId]);
       
       // Delete user's posts
-      db.run('DELETE FROM posts WHERE author_id = ?', [userId]);
+      db.run('DELETE FROM posts WHERE author_id = $1', [userId]);
       
       // Delete user's communities
-      db.run('DELETE FROM communities WHERE created_by = ?', [userId]);
+      db.run('DELETE FROM communities WHERE created_by = $1', [userId]);
       
       // Delete community memberships
-      db.run('DELETE FROM community_members WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM community_members WHERE user_id = $1', [userId]);
       
       // Delete conversation participations
-      db.run('DELETE FROM conversation_participants WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM conversation_participants WHERE user_id = $1', [userId]);
       
       // Delete user's applications
-      db.run('DELETE FROM applications WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM applications WHERE user_id = $1', [userId]);
       
       // Delete user's favorites
-      db.run('DELETE FROM favorites WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM favorites WHERE user_id = $1', [userId]);
       
       // Delete user's opportunities
-      db.run('DELETE FROM opportunities WHERE created_by = ?', [userId]);
+      db.run('DELETE FROM opportunities WHERE created_by = $1', [userId]);
       
       // Delete user's profile
-      db.run('DELETE FROM profiles WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM profiles WHERE user_id = $1', [userId]);
       
       // Delete user's settings
-      db.run('DELETE FROM user_settings WHERE user_id = ?', [userId]);
+      db.run('DELETE FROM user_settings WHERE user_id = $1', [userId]);
       
       // Delete the user
-      db.run('DELETE FROM users WHERE id = ?', [userId], function(err) {
+      db.run('DELETE FROM users WHERE id = $1', [userId], function(err) {
         if (err) {
           console.error('Error deleting user:', err);
           return res.status(500).json({ error: 'Database error' });
@@ -1546,7 +1564,7 @@ app.post('/api/reports', authenticateToken, (req, res) => {
   
   // Check if user already reported this item
   db.get(
-    'SELECT id FROM reports WHERE reporter_id = ? AND reported_type = ? AND reported_id = ?',
+    'SELECT id FROM reports WHERE reporter_id = $1 AND reported_type = $2 AND reported_id = $3',
     [reporter_id, reported_type, reported_id],
     (err, existingReport) => {
       if (err) {
@@ -1558,7 +1576,7 @@ app.post('/api/reports', authenticateToken, (req, res) => {
       
       // Create the report
       db.run(
-        'INSERT INTO reports (reporter_id, reported_type, reported_id, reason, description) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO reports (reporter_id, reported_type, reported_id, reason, description) VALUES ($1, $2, $3, $4, $5)',
         [reporter_id, reported_type, reported_id, reason, description || ''],
         function(err) {
           if (err) {
@@ -1604,7 +1622,7 @@ app.put('/api/admin/reports/:id', authenticateToken, requireAdmin, (req, res) =>
   }
   
   db.run(
-    'UPDATE reports SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?',
+    'UPDATE reports SET status = $1, reviewed_by = $2, reviewed_at = CURRENT_TIMESTAMP WHERE id = $3',
     [status, reviewerId, reportId],
     function(err) {
       if (err) {
@@ -1623,7 +1641,7 @@ app.get('/api/admin/communities', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -1656,7 +1674,7 @@ app.get('/api/admin/posts', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
@@ -1691,7 +1709,7 @@ app.get('/api/admin/users', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.get('SELECT is_admin FROM users WHERE id = ?', [userId], (err, user) => {
+  db.get('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
       console.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
