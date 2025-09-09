@@ -459,42 +459,57 @@ app.get('/api/search/all', authenticateToken, (req, res) => {
 // Signup endpoint
 app.post('/api/auth/signup', async (req, res) => {
   try {
+    console.log('Signup endpoint called');
     const { email, password, full_name, username } = req.body;
+    console.log('Request body:', { email, full_name, username });
 
     if (!email || !password || !full_name || !username) {
+      console.log('Missing required fields');
       return res.status(400).json({ error: 'All fields are required' });
     }
 
+    console.log('Checking if user already exists...');
     // Check if user already exists
     db.get('SELECT id FROM users WHERE email = $1 OR username = $2', [email, username], async (err, row) => {
       if (err) {
+        console.error('Database error in user check:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       if (row) {
+        console.log('User already exists');
         return res.status(400).json({ error: 'User already exists' });
       }
 
+      console.log('User does not exist, hashing password...');
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
+      console.log('Password hashed successfully');
 
+      console.log('Inserting user into database...');
       // Insert user
       db.run(
         'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5) RETURNING id',
         [email, hashedPassword, full_name, username, 0],
         function(err, result) {
           if (err) {
+            console.error('Database error in user insert:', err);
             return res.status(500).json({ error: 'Database error' });
           }
 
+          console.log('User inserted successfully, result:', result);
           const userId = result.lastID;
+          console.log('User ID:', userId);
 
+          console.log('Generating JWT token...');
           // Generate JWT token
           const token = jwt.sign(
             { id: userId, email, username, is_admin: false },
             JWT_SECRET,
             { expiresIn: '7d' }
           );
+          console.log('JWT token generated successfully');
 
+          console.log('Sending success response');
           res.status(201).json({
             message: 'User created successfully',
             token,
@@ -504,6 +519,7 @@ app.post('/api/auth/signup', async (req, res) => {
       );
     });
   } catch (error) {
+    console.error('Signup endpoint error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
