@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const { fileTypeFromFile } = require('file-type');
+const fileType = require('file-type');
 const db = require('./database');
 require('dotenv').config();
 
@@ -117,10 +117,10 @@ const validateImageFile = async (req, res, next) => {
   
   try {
     const filePath = req.file.path;
-    const fileType = await fileTypeFromFile(filePath);
+    const fileTypeResult = await fileType.fromFile(filePath);
     
     // Check if the file is actually an image
-    if (!fileType || !fileType.mime.startsWith('image/')) {
+    if (!fileTypeResult || !fileTypeResult.mime.startsWith('image/')) {
       // Delete the uploaded file if it's not an image
       fs.unlinkSync(filePath);
       return res.status(400).json({ error: 'File is not a valid image!' });
