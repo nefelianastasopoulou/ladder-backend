@@ -6,7 +6,7 @@ const nodemailer = require('nodemailer');
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
-const fileType = require('file-type');
+const { fileTypeFromFile } = require('file-type');
 const db = require('./database');
 require('dotenv').config();
 
@@ -117,7 +117,7 @@ const validateImageFile = async (req, res, next) => {
   
   try {
     const filePath = req.file.path;
-    const fileTypeResult = await fileType.fromFile(filePath);
+    const fileTypeResult = await fileTypeFromFile(filePath);
     
     // Check if the file is actually an image
     if (!fileTypeResult || !fileTypeResult.mime.startsWith('image/')) {
