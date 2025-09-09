@@ -356,11 +356,11 @@ app.get('/api/search/all', authenticateToken, (req, res) => {
          FROM posts p
          LEFT JOIN users u ON p.author_id = u.id
          LEFT JOIN communities c ON p.community_id = c.id
-         WHERE p.is_published = 1 AND (p.title LIKE ? OR p.content LIKE ?)
+         WHERE p.is_published = 1 AND (p.title LIKE $1 OR p.content LIKE $2)
          ORDER BY 
            CASE 
-             WHEN p.title LIKE ? THEN 1
-             WHEN p.content LIKE ? THEN 2
+             WHEN p.title LIKE $1 THEN 1
+             WHEN p.content LIKE $2 THEN 2
              ELSE 3
            END
          LIMIT 10`,
@@ -376,11 +376,11 @@ app.get('/api/search/all', authenticateToken, (req, res) => {
                     u.full_name as creator_name, u.username as creator_username, 'community' as type
              FROM communities c
              LEFT JOIN users u ON c.created_by = u.id
-             WHERE c.is_public = 1 AND (c.name LIKE ? OR c.description LIKE ?)
+             WHERE c.is_public = 1 AND (c.name LIKE $1 OR c.description LIKE $2)
              ORDER BY 
                CASE 
-                 WHEN c.name LIKE ? THEN 1
-                 WHEN c.description LIKE ? THEN 2
+                 WHEN c.name LIKE $1 THEN 1
+                 WHEN c.description LIKE $2 THEN 2
                  ELSE 3
                END
              LIMIT 10`,
@@ -1171,7 +1171,7 @@ app.get('/api/conversations', authenticateToken, (req, res) => {
            (SELECT COUNT(*) FROM messages m2 
             WHERE m2.conversation_id = c.id 
             AND m2.is_read = 0 
-            AND m2.sender_id != ?) as unread_count
+            AND m2.sender_id != $1) as unread_count
     FROM conversations c
     JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
     JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
@@ -1422,7 +1422,7 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
     // Delete community and related data
     db.serialize(() => {
       // Delete messages in community posts
-      db.run('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE type = "community" AND name LIKE ?)', [`%Community ${communityId}%`]);
+      db.run('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE type = $1 AND name LIKE $2)', ['community', `%Community ${communityId}%`]);
       
       // Delete community members
       db.run('DELETE FROM community_members WHERE community_id = $1', [communityId]);
