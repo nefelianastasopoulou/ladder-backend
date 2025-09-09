@@ -205,6 +205,30 @@ app.get('/', (req, res) => {
   res.json({ status: 'OK', message: 'Ladder Backend is running', version: '1.0.0' });
 });
 
+// Debug route to test database connection
+app.get('/debug/db', (req, res) => {
+  console.log('Testing database connection...');
+  console.log('DATABASE_URL:', process.env.DATABASE_URL ? 'Set' : 'Not set');
+  
+  db.get('SELECT COUNT(*) as count FROM users', [], (err, result) => {
+    if (err) {
+      console.error('Database error:', err);
+      res.json({ 
+        status: 'ERROR', 
+        error: err.message,
+        database_url_set: !!process.env.DATABASE_URL
+      });
+    } else {
+      console.log('Database query successful:', result);
+      res.json({ 
+        status: 'OK', 
+        user_count: result.count,
+        database_url_set: !!process.env.DATABASE_URL
+      });
+    }
+  });
+});
+
 // Routes
 app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
   db.all(
