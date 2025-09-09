@@ -7,8 +7,8 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 // Removed file-type dependency - using multer validation instead
-const db = require('./database');
 require('dotenv').config();
+const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
