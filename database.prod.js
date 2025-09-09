@@ -27,7 +27,9 @@ const db = {
   run: (query, params, callback) => {
     pool.query(query, params, (err, result) => {
       if (err) return callback(err);
-      callback(null, { lastID: result.rows[0]?.id, changes: result.rowCount });
+      // For PostgreSQL, we need to use RETURNING id in the query to get the inserted ID
+      // For now, we'll use a placeholder since most queries don't need the ID
+      callback(null, { lastID: result.rows[0]?.id || null, changes: result.rowCount });
     });
   },
   

@@ -479,16 +479,18 @@ app.post('/api/auth/signup', async (req, res) => {
 
       // Insert user
       db.run(
-        'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5)',
+        'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5) RETURNING id',
         [email, hashedPassword, full_name, username, 0],
-        function(err) {
+        function(err, result) {
           if (err) {
             return res.status(500).json({ error: 'Database error' });
           }
 
+          const userId = result.lastID;
+
           // Generate JWT token
           const token = jwt.sign(
-            { id: this.lastID, email, username, is_admin: false },
+            { id: userId, email, username, is_admin: false },
             JWT_SECRET,
             { expiresIn: '7d' }
           );
@@ -496,7 +498,7 @@ app.post('/api/auth/signup', async (req, res) => {
           res.status(201).json({
             message: 'User created successfully',
             token,
-            user: { id: this.lastID, email, username, full_name, is_admin: false }
+            user: { id: userId, email, username, full_name, is_admin: false }
           });
         }
       );
