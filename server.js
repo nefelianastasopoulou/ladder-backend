@@ -157,13 +157,13 @@ app.use('/uploads', (req, res, next) => {
 
 // Database connection is now handled in database.js
 
-// Initialize database using safe migration
-const DatabaseMigrator = require('./database-migrator');
+// Initialize database using proper migrations
+const runMigrations = require('./run-migrations');
 
 const initializeDatabase = async () => {
   try {
-    const migrator = new DatabaseMigrator();
-    await migrator.migrate();
+    console.log('🔄 Running database migrations...');
+    await runMigrations();
     console.log('✅ Database initialization completed successfully!');
   } catch (error) {
     console.error('❌ Database initialization failed:', error);
@@ -171,7 +171,7 @@ const initializeDatabase = async () => {
   }
 };
 
-// Run the safe database migration
+// Run the database migrations
 initializeDatabase();
 
 // Middleware to verify JWT token
