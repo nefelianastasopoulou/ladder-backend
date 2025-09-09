@@ -27,7 +27,7 @@ const db = {
   run: (query, params, callback) => {
     pool.query(query, params, (err, result) => {
       if (err) return callback(err);
-      callback.call({ lastID: result.rows[0]?.id, changes: result.rowCount }, err);
+      callback(null, { lastID: result.rows[0]?.id, changes: result.rowCount });
     });
   },
   
