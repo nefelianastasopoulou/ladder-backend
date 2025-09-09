@@ -1,4 +1,3 @@
-const sqlite3 = require('sqlite3').verbose();
 const { Pool } = require('pg');
 
 // Database configuration
@@ -45,6 +44,7 @@ if (isProduction || isRailway) {
   };
 } else {
   // Use SQLite for local development
+  const sqlite3 = require('sqlite3').verbose();
   db = new sqlite3.Database('./database.sqlite', (err) => {
     if (err) {
       console.error('Error opening database:', err);
