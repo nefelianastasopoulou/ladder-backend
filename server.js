@@ -258,6 +258,51 @@ app.post('/debug/signup', (req, res) => {
   });
 });
 
+// Admin setup route - DELETE AFTER USE
+app.post('/admin/setup', async (req, res) => {
+  try {
+    console.log('Admin setup started...');
+    
+    // Delete all existing users
+    db.run('DELETE FROM users', [], async (err) => {
+      if (err) {
+        console.error('Error deleting users:', err);
+        return res.status(500).json({ error: 'Failed to delete users' });
+      }
+      
+      console.log('All users deleted');
+      
+      // Create admin user
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      
+      db.run(
+        'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        ['nefelianastasopoulou12@gmail.com', hashedPassword, 'Admin User', 'admin', 1],
+        function(err, result) {
+          if (err) {
+            console.error('Error creating admin user:', err);
+            return res.status(500).json({ error: 'Failed to create admin user' });
+          }
+          
+          console.log('Admin user created successfully');
+          res.json({ 
+            message: 'Admin setup completed',
+            admin_user: {
+              id: result.lastID,
+              email: 'nefelianastasopoulou12@gmail.com',
+              username: 'admin',
+              is_admin: true
+            }
+          });
+        }
+      );
+    });
+  } catch (error) {
+    console.error('Admin setup error:', error);
+    res.status(500).json({ error: 'Admin setup failed' });
+  }
+});
+
 // Routes
 app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
   db.all(
