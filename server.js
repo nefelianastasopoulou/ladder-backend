@@ -1809,6 +1809,59 @@ app.get('/api/admin/users', authenticateToken, (req, res) => {
   });
 });
 
+// Admin setup endpoint (temporary)
+app.post('/admin/setup', async (req, res) => {
+  try {
+    console.log('Admin setup endpoint called');
+    
+    // Delete all existing users
+    db.run('DELETE FROM users', [], (err) => {
+      if (err) {
+        console.error('Error deleting users:', err);
+        return res.status(500).json({ error: 'Database error' });
+      }
+      
+      console.log('All users deleted');
+      
+      // Create new admin user with new password
+      const adminEmail = 'nefelianastasopoulou12@gmail.com';
+      const adminUsername = 'admin';
+      const adminPassword = 'newpass123'; // New password
+      
+      bcrypt.hash(adminPassword, 10, (err, hashedPassword) => {
+        if (err) {
+          console.error('Error hashing password:', err);
+          return res.status(500).json({ error: 'Server error' });
+        }
+        
+        db.run(
+          'INSERT INTO users (email, password, full_name, username, is_admin) VALUES ($1, $2, $3, $4, $5)',
+          [adminEmail, hashedPassword, 'Admin User', adminUsername, 1],
+          function(err) {
+            if (err) {
+              console.error('Error creating admin user:', err);
+              return res.status(500).json({ error: 'Database error' });
+            }
+            
+            console.log('Admin user created successfully with new password');
+            res.json({ 
+              message: 'Admin user created successfully',
+              credentials: {
+                email: adminEmail,
+                username: adminUsername,
+                password: adminPassword
+              }
+            });
+          }
+        );
+      });
+    });
+  } catch (error) {
+    console.error('Admin setup error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Start server
 console.log('About to start server on port:', PORT);
 
