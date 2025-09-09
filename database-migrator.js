@@ -1,320 +1,202 @@
-const sqlite3 = require('sqlite3').verbose();
+const { Pool } = require('pg');
 const path = require('path');
 
 class DatabaseMigrator {
   constructor() {
-    this.dbPath = path.join(__dirname, 'database.sqlite');
-    this.db = null;
+    this.pool = null;
   }
 
   async connect() {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          console.error('Error opening database:', err);
-          reject(err);
-        } else {
-          console.log('Database connected successfully');
-          resolve();
+    try {
+      this.pool = new Pool({
+        connectionString: process.env.DATABASE_URL,
+        ssl: {
+          rejectUnauthorized: false
         }
       });
-    });
-  }
-
-  async checkTableExists(tableName) {
-    return new Promise((resolve, reject) => {
-      this.db.get(
-        "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-        [tableName],
-        (err, row) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(!!row);
-          }
-        }
-      );
-    });
-  }
-
-  async createTableIfNotExists(tableName, createSQL) {
-    const exists = await this.checkTableExists(tableName);
-    if (!exists) {
-      console.log(`Creating ${tableName} table...`);
-      return new Promise((resolve, reject) => {
-        this.db.run(createSQL, (err) => {
-          if (err) {
-            console.error(`Error creating ${tableName} table:`, err);
-            reject(err);
-          } else {
-            console.log(`${tableName} table created successfully`);
-            resolve();
-          }
-        });
-      });
-    } else {
-      console.log(`${tableName} table already exists`);
+      console.log('Database connected successfully');
+    } catch (error) {
+      console.error('Error connecting to database:', error);
+      throw error;
     }
   }
 
-  async addColumnIfNotExists(tableName, columnName, columnDefinition) {
-    return new Promise((resolve, reject) => {
-      // Check if column exists
-      this.db.all(`PRAGMA table_info(${tableName})`, (err, columns) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+  async checkTableExists(tableName) {
+    try {
+      const result = await this.pool.query(
+        "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_name = $1",
+        [tableName]
+      );
+      return result.rows.length > 0;
+    } catch (error) {
+      console.error('Error checking table existence:', error);
+      throw error;
+    }
+  }
 
-        const columnExists = columns.some(col => col.name === columnName);
-        if (!columnExists) {
-          console.log(`Adding column ${columnName} to ${tableName} table...`);
-          this.db.run(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${columnDefinition}`, (err) => {
-            if (err) {
-              console.error(`Error adding column ${columnName}:`, err);
-              reject(err);
-            } else {
-              console.log(`Column ${columnName} added successfully`);
-              resolve();
-            }
-          });
-        } else {
-          console.log(`Column ${columnName} already exists in ${tableName}`);
-          resolve();
-        }
-      });
-    });
+  async createUsersTable() {
+    try {
+      const exists = await this.checkTableExists('users');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password VARCHAR(255) NOT NULL,
+            username VARCHAR(100) UNIQUE,
+            profile_picture VARCHAR(500),
+            bio TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_admin BOOLEAN DEFAULT FALSE
+          )
+        `);
+        console.log('✅ Users table created successfully');
+      } else {
+        console.log('✅ Users table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating users table:', error);
+      throw error;
+    }
+  }
+
+  async createPostsTable() {
+    try {
+      const exists = await this.checkTableExists('posts');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE posts (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            image_url VARCHAR(500),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Posts table created successfully');
+      } else {
+        console.log('✅ Posts table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating posts table:', error);
+      throw error;
+    }
+  }
+
+  async createLikesTable() {
+    try {
+      const exists = await this.checkTableExists('likes');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE likes (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(user_id, post_id)
+          )
+        `);
+        console.log('✅ Likes table created successfully');
+      } else {
+        console.log('✅ Likes table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating likes table:', error);
+      throw error;
+    }
+  }
+
+  async createCommentsTable() {
+    try {
+      const exists = await this.checkTableExists('comments');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE comments (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Comments table created successfully');
+      } else {
+        console.log('✅ Comments table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating comments table:', error);
+      throw error;
+    }
+  }
+
+  async createFollowsTable() {
+    try {
+      const exists = await this.checkTableExists('follows');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE follows (
+            id SERIAL PRIMARY KEY,
+            follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            following_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(follower_id, following_id)
+          )
+        `);
+        console.log('✅ Follows table created successfully');
+      } else {
+        console.log('✅ Follows table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating follows table:', error);
+      throw error;
+    }
+  }
+
+  async createPasswordResetTokensTable() {
+    try {
+      const exists = await this.checkTableExists('password_reset_tokens');
+      if (!exists) {
+        await this.pool.query(`
+          CREATE TABLE password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            token VARCHAR(255) UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Password reset tokens table created successfully');
+      } else {
+        console.log('✅ Password reset tokens table already exists');
+      }
+    } catch (error) {
+      console.error('Error creating password reset tokens table:', error);
+      throw error;
+    }
   }
 
   async migrate() {
     try {
       await this.connect();
-
-      // Create users table
-      await this.createTableIfNotExists('users', `
-        CREATE TABLE users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT UNIQUE,
-          email TEXT UNIQUE,
-          password TEXT NOT NULL,
-          full_name TEXT NOT NULL,
-          is_admin BOOLEAN DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-
-      // Create profiles table
-      await this.createTableIfNotExists('profiles', `
-        CREATE TABLE profiles (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER UNIQUE,
-          avatar_url TEXT,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-      `);
-
-      // Create opportunities table
-      await this.createTableIfNotExists('opportunities', `
-        CREATE TABLE opportunities (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          company TEXT NOT NULL,
-          description TEXT NOT NULL,
-          location TEXT,
-          type TEXT,
-          created_by INTEGER,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (created_by) REFERENCES users (id)
-        )
-      `);
-
-      // Create favorites table
-      await this.createTableIfNotExists('favorites', `
-        CREATE TABLE favorites (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          opportunity_id INTEGER,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id),
-          FOREIGN KEY (opportunity_id) REFERENCES opportunities (id)
-        )
-      `);
-
-      // Create applications table
-      await this.createTableIfNotExists('applications', `
-        CREATE TABLE applications (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          opportunity_id INTEGER,
-          status TEXT DEFAULT 'applied',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id),
-          FOREIGN KEY (opportunity_id) REFERENCES opportunities (id)
-        )
-      `);
-
-      // Create email_changes table
-      await this.createTableIfNotExists('email_changes', `
-        CREATE TABLE email_changes (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          new_email TEXT NOT NULL,
-          verification_code TEXT NOT NULL,
-          expires_at DATETIME NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-      `);
-
-      // Create user_settings table
-      await this.createTableIfNotExists('user_settings', `
-        CREATE TABLE user_settings (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER UNIQUE,
-          posts_on_profile_visibility TEXT DEFAULT 'everyone',
-          show_online_status BOOLEAN DEFAULT 1,
-          push_notifications BOOLEAN DEFAULT 1,
-          email_notifications BOOLEAN DEFAULT 1,
-          language TEXT DEFAULT 'en',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-      `);
-
-      // Create communities table
-      await this.createTableIfNotExists('communities', `
-        CREATE TABLE communities (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          name TEXT NOT NULL,
-          description TEXT,
-          category TEXT,
-          created_by INTEGER,
-          member_count INTEGER DEFAULT 0,
-          is_public BOOLEAN DEFAULT 1,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (created_by) REFERENCES users (id)
-        )
-      `);
-
-      // Create posts table
-      await this.createTableIfNotExists('posts', `
-        CREATE TABLE posts (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          title TEXT NOT NULL,
-          content TEXT NOT NULL,
-          author_id INTEGER,
-          community_id INTEGER,
-          image_url TEXT,
-          likes_count INTEGER DEFAULT 0,
-          comments_count INTEGER DEFAULT 0,
-          is_published BOOLEAN DEFAULT 1,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (author_id) REFERENCES users (id),
-          FOREIGN KEY (community_id) REFERENCES communities (id)
-        )
-      `);
-
-      // Create community_members table
-      await this.createTableIfNotExists('community_members', `
-        CREATE TABLE community_members (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          user_id INTEGER,
-          community_id INTEGER,
-          role TEXT DEFAULT 'member',
-          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (user_id) REFERENCES users (id),
-          FOREIGN KEY (community_id) REFERENCES communities (id),
-          UNIQUE(user_id, community_id)
-        )
-      `);
-
-      // Create conversations table
-      await this.createTableIfNotExists('conversations', `
-        CREATE TABLE conversations (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          type TEXT DEFAULT 'individual',
-          name TEXT,
-          created_by INTEGER,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (created_by) REFERENCES users (id)
-        )
-      `);
-
-      // Create conversation_participants table
-      await this.createTableIfNotExists('conversation_participants', `
-        CREATE TABLE conversation_participants (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          conversation_id INTEGER,
-          user_id INTEGER,
-          joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          last_read_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (conversation_id) REFERENCES conversations (id),
-          FOREIGN KEY (user_id) REFERENCES users (id),
-          UNIQUE(conversation_id, user_id)
-        )
-      `);
-
-      // Create messages table
-      await this.createTableIfNotExists('messages', `
-        CREATE TABLE messages (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          conversation_id INTEGER,
-          sender_id INTEGER,
-          content TEXT NOT NULL,
-          message_type TEXT DEFAULT 'text',
-          is_read BOOLEAN DEFAULT 0,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (conversation_id) REFERENCES conversations (id),
-          FOREIGN KEY (sender_id) REFERENCES users (id)
-        )
-      `);
-
-      // Create reports table
-      await this.createTableIfNotExists('reports', `
-        CREATE TABLE reports (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          reporter_id INTEGER NOT NULL,
-          reported_type TEXT NOT NULL CHECK (reported_type IN ('user', 'community', 'post')),
-          reported_id INTEGER NOT NULL,
-          reason TEXT NOT NULL,
-          description TEXT,
-          status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'reviewed', 'resolved', 'dismissed')),
-          reviewed_by INTEGER,
-          reviewed_at DATETIME,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          FOREIGN KEY (reporter_id) REFERENCES users (id),
-          FOREIGN KEY (reviewed_by) REFERENCES users (id)
-        )
-      `);
-
-      // Add any missing columns to existing tables
-      await this.addColumnIfNotExists('users', 'username', 'TEXT UNIQUE');
-      await this.addColumnIfNotExists('users', 'full_name', 'TEXT NOT NULL');
-      await this.addColumnIfNotExists('users', 'is_admin', 'BOOLEAN DEFAULT 0');
-
-      console.log('✅ Database migration completed successfully!');
-      console.log('✅ All existing data has been preserved!');
-
+      await this.createUsersTable();
+      await this.createPostsTable();
+      await this.createLikesTable();
+      await this.createCommentsTable();
+      await this.createFollowsTable();
+      await this.createPasswordResetTokensTable();
+      console.log('🎉 All database migrations completed successfully!');
     } catch (error) {
-      console.error('❌ Database migration failed:', error);
+      console.error('❌ Migration failed:', error);
       throw error;
     } finally {
-      if (this.db) {
-        this.db.close();
+      if (this.pool) {
+        await this.pool.end();
       }
     }
   }
 }
 
-// Export for use in server.js
 module.exports = DatabaseMigrator;
-
-// If run directly, perform migration
-if (require.main === module) {
-  const migrator = new DatabaseMigrator();
-  migrator.migrate().catch(console.error);
-}
