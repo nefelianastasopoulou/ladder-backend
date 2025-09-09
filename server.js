@@ -211,6 +211,11 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
+// Health check route
+app.get('/', (req, res) => {
+  res.json({ status: 'OK', message: 'Ladder Backend is running' });
+});
+
 // Routes
 app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
   db.all(
