@@ -43,6 +43,7 @@ class DatabaseMigrator {
             id SERIAL PRIMARY KEY,
             email VARCHAR(255) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
+            full_name VARCHAR(255),
             username VARCHAR(100) UNIQUE,
             profile_picture VARCHAR(500),
             bio TEXT,
@@ -54,9 +55,31 @@ class DatabaseMigrator {
         console.log('✅ Users table created successfully');
       } else {
         console.log('✅ Users table already exists');
+        // Check if full_name column exists, if not add it
+        await this.addFullNameColumn();
       }
     } catch (error) {
       console.error('Error creating users table:', error);
+      throw error;
+    }
+  }
+
+  async addFullNameColumn() {
+    try {
+      const result = await this.pool.query(`
+        SELECT column_name 
+        FROM information_schema.columns 
+        WHERE table_name = 'users' AND column_name = 'full_name'
+      `);
+      
+      if (result.rows.length === 0) {
+        await this.pool.query('ALTER TABLE users ADD COLUMN full_name VARCHAR(255)');
+        console.log('✅ Added full_name column to users table');
+      } else {
+        console.log('✅ full_name column already exists');
+      }
+    } catch (error) {
+      console.error('❌ Error adding full_name column:', error);
       throw error;
     }
   }
