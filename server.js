@@ -12,7 +12,7 @@ const db = require('./database');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'cQYKC4M6ydxoOHfSn7XjzVLhrAbRkP2p';
 
 // Middleware
 app.use(cors());
