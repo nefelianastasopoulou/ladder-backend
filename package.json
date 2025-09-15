@@ -3,14 +3,8 @@
   "version": "1.0.0",
   "description": "Ladder app with backend and frontend",
   "private": true,
-  "workspaces": [
-    "backend",
-    "app"
-  ],
   "scripts": {
-    "start": "cd backend && npm start",
-    "build": "cd backend && npm ci",
-    "dev": "cd backend && npm run dev"
+    "start": "cd backend && npm start"
   },
   "engines": {
     "node": ">=20.0.0"
