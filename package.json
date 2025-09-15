@@ -2,10 +2,15 @@
   "name": "ladder-app",
   "version": "1.0.0",
   "description": "Ladder app with backend and frontend",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "app"
+  ],
   "scripts": {
     "start": "cd backend && npm start",
     "build": "cd backend && npm ci",
-    "install": "cd backend && npm ci"
+    "dev": "cd backend && npm run dev"
   },
   "engines": {
     "node": ">=20.0.0"
