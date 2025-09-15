@@ -1039,11 +1039,11 @@ app.post('/api/auth/signup', signupLimiter, asyncHandler(async (req, res) => {
   }
 
   // Check if username already exists (email can be duplicate now)
-  db.query('SELECT id FROM users WHERE username = $1', [username], async (err, row) => {
+  db.query('SELECT id FROM users WHERE username = $1', [username], async (err, result) => {
     if (err) {
       return handleDatabaseError(err, res, 'username check');
     }
-    if (row) {
+    if (result && result.rows && result.rows.length > 0) {
       return sendErrorResponse(res, 409, 'Username already exists');
     }
 
@@ -1102,10 +1102,10 @@ app.post('/api/auth/signin', authLimiter, asyncHandler(async (req, res) => {
     if (err) {
       return handleDatabaseError(err, res, 'user lookup');
     }
-    const user = result.rows[0];
-    if (!user) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return sendErrorResponse(res, 401, 'Invalid credentials');
     }
+    const user = result.rows[0];
 
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
@@ -1196,11 +1196,11 @@ app.put('/api/profile', authenticateToken, (req, res) => {
   
   // Check if username is being changed and if it already exists
   if (username) {
-    db.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, req.user.id], (err, row) => {
+    db.query('SELECT id FROM users WHERE username = $1 AND id != $2', [username, req.user.id], (err, result) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
-      if (row) {
+      if (result && result.rows && result.rows.length > 0) {
         return res.status(400).json({ error: 'Username already exists' });
       }
       
@@ -1543,12 +1543,12 @@ app.post('/api/communities/:id/posts', authenticateToken, uploadLimiter, checkPh
   db.query(
     'SELECT id FROM community_members WHERE community_id = $1 AND user_id = $2',
     [communityId, userId],
-    (err, membership) => {
+    (err, result) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
       
-      if (!membership) {
+      if (!result || !result.rows || result.rows.length === 0) {
         return res.status(403).json({ error: 'You must be a member of this community to post' });
       }
       
@@ -1635,24 +1635,25 @@ app.put('/api/communities/:id', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is the creator
-  db.query('SELECT created_by FROM communities WHERE id = $1', [communityId], (err, community) => {
+  db.query('SELECT created_by FROM communities WHERE id = $1', [communityId], (err, result) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    if (!community) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return res.status(404).json({ error: 'Community not found' });
     }
+    const community = result.rows[0];
     if (community.created_by !== userId) {
       return res.status(403).json({ error: 'Only the creator can update community settings' });
     }
     
     // Check if new name already exists (if name is being changed)
     if (name) {
-      db.query('SELECT id FROM communities WHERE name = $1 AND id != $2', [name, communityId], (err, existingCommunity) => {
+      db.query('SELECT id FROM communities WHERE name = $1 AND id != $2', [name, communityId], (err, result) => {
         if (err) {
           return res.status(500).json({ error: 'Database error' });
         }
-        if (existingCommunity) {
+        if (result && result.rows && result.rows.length > 0) {
           return res.status(400).json({ error: 'Community name already exists' });
         }
         
@@ -1707,11 +1708,11 @@ app.post('/api/communities', authenticateToken, (req, res) => {
   }
   
   // Check if community name already exists
-  db.query('SELECT id FROM communities WHERE name = $1', [name], (err, row) => {
+  db.query('SELECT id FROM communities WHERE name = $1', [name], (err, result) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    if (row) {
+    if (result && result.rows && result.rows.length > 0) {
       return res.status(400).json({ error: 'Community name already exists' });
     }
     
@@ -1759,20 +1760,21 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   // Check if community exists
-  db.query('SELECT * FROM communities WHERE id = $1', [communityId], (err, community) => {
+  db.query('SELECT * FROM communities WHERE id = $1', [communityId], (err, result) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    if (!community) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return res.status(404).json({ error: 'Community not found' });
     }
+    const community = result.rows[0];
 
     // Check if user is already a member
-    db.query('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, existingMember) => {
+    db.query('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, result) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
-      if (existingMember) {
+      if (result && result.rows && result.rows.length > 0) {
         return res.status(400).json({ error: 'You are already a member of this community' });
       }
 
@@ -1816,11 +1818,11 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   // Check if user is a member
-  db.query('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, member) => {
+  db.query('SELECT * FROM community_members WHERE user_id = $1 AND community_id = $2', [userId, communityId], (err, result) => {
     if (err) {
       return res.status(500).json({ error: 'Database error' });
     }
-    if (!member) {
+    if (!result || !result.rows || result.rows.length === 0) {
       return res.status(400).json({ error: 'You are not a member of this community' });
     }
 
@@ -2128,13 +2130,13 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
   const communityId = req.params.id;
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
@@ -2171,13 +2173,13 @@ app.delete('/api/admin/posts/:id', authenticateToken, (req, res) => {
   const postId = req.params.id;
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
@@ -2208,13 +2210,13 @@ app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
   }
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [adminId], (err, admin) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [adminId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!admin || !admin.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
@@ -2282,11 +2284,11 @@ app.post('/api/reports', authenticateToken, (req, res) => {
   db.query(
     'SELECT id FROM reports WHERE reporter_id = $1 AND reported_type = $2 AND reported_id = $3',
     [reporter_id, reported_type, reported_id],
-    (err, existingReport) => {
+    (err, result) => {
       if (err) {
         return res.status(500).json({ error: 'Database error' });
       }
-      if (existingReport) {
+      if (result && result.rows && result.rows.length > 0) {
         return res.status(400).json({ error: 'You have already reported this item' });
       }
       
@@ -2357,13 +2359,13 @@ app.get('/api/admin/communities', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
@@ -2390,13 +2392,13 @@ app.get('/api/admin/posts', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     
@@ -2425,13 +2427,13 @@ app.get('/api/admin/users', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
   // Check if user is admin
-  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
+  db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, result) => {
     if (err) {
       logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
-    if (!user || !user.is_admin) {
+    if (!result || !result.rows || result.rows.length === 0 || !result.rows[0].is_admin) {
       return res.status(403).json({ error: 'Admin access required' });
     }
     

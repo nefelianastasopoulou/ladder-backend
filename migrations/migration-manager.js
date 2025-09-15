@@ -4,13 +4,23 @@ const path = require('path');
 
 class MigrationManager {
   constructor() {
-    const isLocal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('127.0.0.1');
+    // Check if we're connecting to a local database or Railway/cloud database
+    const isLocal = process.env.DATABASE_URL && (
+      process.env.DATABASE_URL.includes('127.0.0.1') || 
+      process.env.DATABASE_URL.includes('localhost') ||
+      process.env.DATABASE_URL.includes('postgresql://localhost')
+    );
+    
+    const isRailway = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway');
+    
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: isLocal ? false : {
         rejectUnauthorized: false
       }
     });
+    
+    console.log(`🔗 Connecting to ${isLocal ? 'local' : isRailway ? 'Railway' : 'cloud'} database`);
   }
 
   async connect() {
