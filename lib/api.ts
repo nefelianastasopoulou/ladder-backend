@@ -13,7 +13,7 @@ const getApiBaseUrl = () => {
   }
   
   // For production, use environment variable or fallback
-  return process.env.EXPO_PUBLIC_API_URL || 'https://your-app-name.railway.app/api';
+  return process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
