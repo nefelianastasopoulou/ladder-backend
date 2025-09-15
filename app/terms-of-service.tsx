@@ -107,7 +107,7 @@ export default function TermsOfServiceScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>8. Disclaimers</Text>
             <Text style={styles.sectionText}>
-              Ladder is provided "as is" without warranties of any kind. We do not guarantee 
+              Ladder is provided &quot;as is&quot; without warranties of any kind. We do not guarantee 
               the accuracy of user-generated content or the availability of specific opportunities.
             </Text>
           </View>

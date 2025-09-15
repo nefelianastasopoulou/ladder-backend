@@ -19,7 +19,7 @@ import { useUser } from './context/UserContext';
 
 export default function ChangeEmailScreen() {
   const colorScheme = useColorScheme() ?? 'light';
-  const { user, setUser } = useUser();
+  const { user, setUser: _setUser } = useUser();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newEmail, setNewEmail] = useState('');
   const [confirmNewEmail, setConfirmNewEmail] = useState('');
@@ -39,7 +39,7 @@ export default function ChangeEmailScreen() {
       await authAPI.signIn(user?.email || '', currentPassword);
       setStep(2);
       setCurrentPassword('');
-    } catch (error: any) {
+    } catch (_error: any) {
       Alert.alert('Error', 'Incorrect password. Please try again.');
     } finally {
       setIsLoading(false);
@@ -84,7 +84,7 @@ export default function ChangeEmailScreen() {
     try {
       await authAPI.changeEmail(newEmail);
       Alert.alert('Success', 'Verification email sent again');
-    } catch (error: any) {
+    } catch (_error: any) {
       Alert.alert('Error', 'Failed to resend verification email. Please try again.');
     } finally {
       setIsLoading(false);
@@ -156,7 +156,7 @@ export default function ChangeEmailScreen() {
         <Text style={styles.stepTitle}>Enter New Email</Text>
       </View>
       <Text style={styles.stepDescription}>
-        Enter your new email address. You'll receive a verification email to confirm the change.
+        Enter your new email address. You&apos;ll receive a verification email to confirm the change.
       </Text>
 
       <View style={styles.currentEmailContainer}>
@@ -232,7 +232,7 @@ export default function ChangeEmailScreen() {
       
       <Text style={styles.successTitle}>Verification Email Sent!</Text>
       <Text style={styles.successDescription}>
-        We've sent a verification email to:
+        We&apos;ve sent a verification email to:
       </Text>
       <Text style={styles.newEmailText}>{newEmail}</Text>
       

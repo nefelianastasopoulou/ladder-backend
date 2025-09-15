@@ -7,11 +7,14 @@ interface User {
   username?: string;
   email: string;
   is_admin: boolean;
+  bio?: string;
+  profilePicture?: string;
+  createdAt?: string;
 }
 
 interface UserContextType {
   user: User | null;
-  setUser: (user: User) => void;
+  setUser: (user: User | null) => void;
   clearUser: () => void;
   isLoading: boolean;
 }
@@ -40,10 +43,14 @@ export function UserProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const setUser = async (userData: User) => {
+  const setUser = async (userData: User | null) => {
     try {
       setUserState(userData);
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      if (userData) {
+        await AsyncStorage.setItem('user', JSON.stringify(userData));
+      } else {
+        await AsyncStorage.removeItem('user');
+      }
     } catch (error) {
       console.error('Error saving user to storage:', error);
     }

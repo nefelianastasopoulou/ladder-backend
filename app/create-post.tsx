@@ -18,6 +18,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
+import { communitiesAPI, settingsAPI } from '../lib/api';
 
 
 export default function CreatePostScreen() {
@@ -45,21 +46,21 @@ export default function CreatePostScreen() {
     setIsSubmitting(true);
     
     try {
-      const { communitiesAPI } = await import('../lib/api');
+      // Use regular import instead of dynamic import
       
       if (communityId) {
         // Create post in specific community
         await communitiesAPI.createCommunityPost(parseInt(communityId), {
           title: title.trim(),
           content: content.trim(),
-          image: selectedImage
+          image: selectedImage || undefined
         });
       } else {
         // Create platform-wide post
         await communitiesAPI.createPlatformPost({
           title: title.trim(),
           content: content.trim(),
-          image: selectedImage
+          image: selectedImage || undefined
         });
       }
       
@@ -73,8 +74,8 @@ export default function CreatePostScreen() {
           }
         ]
       );
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create post. Please try again.');
+    } catch (_error: any) {
+      Alert.alert('Error', _error.message || 'Failed to create post. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -83,7 +84,7 @@ export default function CreatePostScreen() {
   const handleImageSelect = async () => {
     try {
       // Check user's photo upload restrictions
-      const { settingsAPI } = await import('../lib/api');
+      // Use regular import instead of dynamic import
       const userSettings = await settingsAPI.getSettings();
       
       const restriction = userSettings.photo_upload_restriction || 'all';
@@ -132,14 +133,14 @@ export default function CreatePostScreen() {
         return;
       }
       
-      options.unshift({ text: 'Cancel', style: 'cancel' });
+      options.unshift({ text: 'Cancel', style: 'cancel' as const });
       
       Alert.alert(
         'Select Image',
         'Choose how you want to add an image',
         options
       );
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to check photo restrictions. Please try again.');
     }
   };

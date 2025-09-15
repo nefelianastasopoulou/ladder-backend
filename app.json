@@ -21,7 +21,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.anonymous.myfirstapp"
+      "package": "com.nefeli.ladder"
     },
     "web": {
       "bundler": "metro",

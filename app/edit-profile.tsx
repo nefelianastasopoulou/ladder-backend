@@ -32,7 +32,7 @@ interface ProfileData {
 export default function EditProfileScreen() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [_saving, _setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const { t } = useLanguage();
   const [formData, setFormData] = useState<ProfileData>({
@@ -87,7 +87,7 @@ export default function EditProfileScreen() {
     }
 
     try {
-      const result = await profileAPI.updateProfile(formData);
+      const _result = await profileAPI.updateProfile(formData);
       
       // Update local state with the new data instead of refetching
       setProfile(prevProfile => ({

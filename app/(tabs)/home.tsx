@@ -92,35 +92,17 @@ export default function HomeScreen() {
   const [opportunities, setOpportunities] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set([]));
-  const { favorites, toggleFavorite, isFavorite } = useFavorites();
+  const { toggleFavorite, isFavorite } = useFavorites();
   const { unreadCount } = useNotifications();
   const { getPersonalizedOpportunities, trackBehavior } = useRecommendations();
   const { user, isLoading } = useUser();
   const { t } = useLanguage();
-  
-  // Show loading screen while user data is being loaded
-  if (isLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>{t('loading')}...</Text>
-      </View>
-    );
-  }
-  
-  // If no user is logged in, redirect to login
-  if (!user) {
-    router.replace('/login');
-    return null;
-  }
 
   // Fetch opportunities from backend
   const fetchOpportunities = async () => {
     try {
       setLoading(true);
-      console.log('Fetching opportunities...');
       const data = await opportunitiesAPI.getOpportunities();
-      console.log('Fetched opportunities from API:', data);
-      console.log('Number of opportunities:', data ? data.length : 0);
       setOpportunities(data || []);
     } catch (error) {
       console.error('Error fetching opportunities:', error);
@@ -140,11 +122,24 @@ export default function HomeScreen() {
       fetchOpportunities();
     }, [])
   );
+  
+  // Show loading screen while user data is being loaded
+  if (isLoading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>{t('loading')}...</Text>
+      </View>
+    );
+  }
+  
+  // If no user is logged in, redirect to login
+  if (!user) {
+    router.replace('/login');
+    return null;
+  }
 
   // Get personalized opportunities
-  console.log('Raw opportunities before personalization:', opportunities);
   const personalizedOpportunities = getPersonalizedOpportunities(opportunities);
-  console.log('Personalized opportunities:', personalizedOpportunities);
 
   // Use raw opportunities directly for now to debug
   const opportunitiesToFilter = Array.isArray(opportunities) && opportunities.length > 0 ? opportunities : personalizedOpportunities;
@@ -318,7 +313,7 @@ export default function HomeScreen() {
           {searchQuery.length > 0 && (
             <View style={styles.searchResultsInfo}>
               <Text style={styles.searchResultsText}>
-                {filtered.length} {filtered.length !== 1 ? t('results') : t('result')} {t('resultsFor')} "{searchQuery}"
+                {filtered.length} {filtered.length !== 1 ? t('results') : t('result')} {t('resultsFor')} &quot;{searchQuery}&quot;
               </Text>
             </View>
           )}
@@ -420,7 +415,7 @@ export default function HomeScreen() {
                   <Image 
                     source={{ uri: item.image }} 
                     style={styles.cardImage}
-                    onError={() => console.log('Image failed to load for:', item.title)}
+                    onError={() => {}}
                   />
                   <View style={styles.cardContent}>
                     <Text style={[styles.cardTitle, { color: '#000' }]}>{item.title}</Text>

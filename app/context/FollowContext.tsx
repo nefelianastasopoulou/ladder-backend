@@ -25,7 +25,7 @@ interface FollowProviderProps {
 
 export const FollowProvider: React.FC<FollowProviderProps> = ({ children }) => {
   const [following, setFollowing] = useState<Set<string>>(new Set());
-  const [followers, setFollowers] = useState<Set<string>>(new Set());
+  const [followers, _setFollowers] = useState<Set<string>>(new Set());
 
   const followUser = (userId: string) => {
     setFollowing(prev => {

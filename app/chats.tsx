@@ -18,7 +18,7 @@ export default function ChatsScreen() {
   const params = useLocalSearchParams();
   
   const [chats, setChats] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadConversations = async () => {

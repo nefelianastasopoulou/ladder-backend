@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { NativeModules, Platform } from 'react-native';
 import { getTranslation, Translations } from '../../lib/translations';
 
@@ -26,10 +26,6 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [language, setLanguageState] = useState<string>('en');
 
-  // Load saved language on app start
-  useEffect(() => {
-    loadLanguage();
-  }, []);
 
   // Smart language detection based on device locale
   const getDeviceLanguage = (): string => {
@@ -52,7 +48,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     return 'en';
   };
 
-  const loadLanguage = async () => {
+  const loadLanguage = useCallback(async () => {
     try {
       const savedLanguage = await AsyncStorage.getItem('app_language');
       if (savedLanguage && (savedLanguage === 'en' || savedLanguage === 'el')) {
@@ -70,7 +66,12 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       // Fallback to English if there's an error
       setLanguageState('en');
     }
-  };
+  }, []);
+
+  // Load saved language on app start
+  useEffect(() => {
+    loadLanguage();
+  }, [loadLanguage]);
 
   const setLanguage = async (newLanguage: string) => {
     try {

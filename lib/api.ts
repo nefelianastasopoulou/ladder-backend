@@ -1,7 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Mock API for now - simulates real backend
-const API_BASE_URL = 'http://localhost:3001/api';
+// Environment-based API configuration
+const getApiBaseUrl = () => {
+  // Check if we're in development mode
+  if (__DEV__) {
+    // For testing with multiple people, use the ngrok URL
+    // Replace this with your actual ngrok URL when testing
+    return 'https://be69acdae47e.ngrok-free.app/api';
+    
+    // For local testing only, use localhost:
+    // return 'http://localhost:3001/api';
+  }
+  
+  // For production, use environment variable or fallback
+  return process.env.EXPO_PUBLIC_API_URL || 'https://your-app-name.railway.app/api';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 // Fallback mock data for testing when API is not available
 const MOCK_OPPORTUNITIES = [
@@ -36,6 +51,7 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const config: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
+      'ngrok-skip-browser-warning': 'true', // Skip ngrok warning page
       ...options.headers,
     },
     ...options,
@@ -78,8 +94,19 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     console.log(`API Data:`, data);
 
     if (!response.ok) {
-      console.error(`API Error: ${data.error || 'API request failed'}`);
-      throw new Error(data.error || `API request failed: ${response.status}`);
+      // Enhanced error handling with specific error types
+      const errorMessage = data.error?.message || data.error || `API request failed: ${response.status}`;
+      const errorDetails = data.error?.details || null;
+      
+      console.error(`API Error: ${errorMessage}`, errorDetails);
+      
+      // Create more specific error objects
+      const apiError = new Error(errorMessage);
+      (apiError as any).status = response.status;
+      (apiError as any).details = errorDetails;
+      (apiError as any).type = data.error?.type || 'API_ERROR';
+      
+      throw apiError;
     }
 
     return data;
@@ -87,13 +114,22 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     console.error(`API Request failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
     console.error(`Full error:`, error);
     
-    // Handle network errors more gracefully
+    // Enhanced error handling with specific error types
     if (error instanceof Error) {
       if (error.name === 'AbortError') {
-        throw new Error('Request timeout - please check your internet connection');
+        const timeoutError = new Error('Request timeout - please check your internet connection');
+        (timeoutError as any).type = 'TIMEOUT_ERROR';
+        throw timeoutError;
       }
       if (error.message.includes('Network request failed')) {
-        throw new Error('Network error - please check your internet connection');
+        const networkError = new Error('Network error - please check your internet connection');
+        (networkError as any).type = 'NETWORK_ERROR';
+        throw networkError;
+      }
+      if (error.message.includes('Failed to fetch')) {
+        const fetchError = new Error('Unable to connect to server - please check your internet connection');
+        (fetchError as any).type = 'CONNECTION_ERROR';
+        throw fetchError;
       }
     }
     

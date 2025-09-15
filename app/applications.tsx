@@ -34,7 +34,7 @@ const statusIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
 export default function ApplicationsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const [applications, setApplications] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
   // Fetch applications on component mount
@@ -73,7 +73,7 @@ export default function ApplicationsScreen() {
       // Refresh applications
       const data = await applicationsAPI.getApplications();
       setApplications(data || []);
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to update application status.');
     }
   };
@@ -93,7 +93,7 @@ export default function ApplicationsScreen() {
               // Refresh applications
               const data = await applicationsAPI.getApplications();
               setApplications(data || []);
-            } catch (error) {
+            } catch (_error) {
               Alert.alert('Error', 'Failed to remove application.');
             }
           }
@@ -208,7 +208,7 @@ export default function ApplicationsScreen() {
                 </Text>
               </View>
             ) : (
-              filteredApplications.map((application, index) => (
+              filteredApplications.map((application, _index) => (
                 <View key={application.opportunityId} style={styles.applicationCard}>
                   <View style={styles.applicationHeader}>
                     <View style={styles.applicationInfo}>

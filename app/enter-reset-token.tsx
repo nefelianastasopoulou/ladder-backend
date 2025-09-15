@@ -6,7 +6,7 @@ import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity
 
 export default function EnterResetTokenScreen() {
   const [token, setToken] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, _setIsLoading] = useState(false);
 
   const handleContinue = () => {
     if (!token.trim()) {

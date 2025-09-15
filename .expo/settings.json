@@ -1,0 +1,10 @@
+{
+  "urlRandomness": "YkqkU1o",
+  "dev": true,
+  "minify": false,
+  "https": false,
+  "scheme": "myfirstapp",
+  "hostType": "lan",
+  "lanType": "ip",
+  "devClient": false
+}

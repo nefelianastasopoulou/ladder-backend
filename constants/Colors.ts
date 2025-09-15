@@ -24,6 +24,7 @@ export const Colors = {
     tabIconSelected: brandBlue,
     filterBg: '#e0e7ef',
     filterActive: brandBlue,
+    border: '#e2e8f0',
   },
   dark: {
     text: textDark,
@@ -36,5 +37,6 @@ export const Colors = {
     tabIconSelected: brandBlue,
     filterBg: '#1e293b',
     filterActive: brandBlue,
+    border: '#334155',
   },
 };

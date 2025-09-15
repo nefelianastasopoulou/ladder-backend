@@ -160,7 +160,7 @@ export default function UserProfileScreen() {
     }
   };
 
-  const handleMessage = () => {
+  const _handleMessage = () => {
     router.push({
       pathname: '/chat',
       params: { 
@@ -171,7 +171,7 @@ export default function UserProfileScreen() {
     });
   };
 
-  const formatDate = (date: Date) => {
+  const _formatDate = (date: Date) => {
     return date.toLocaleDateString('en-GB', {
       day: 'numeric',
       month: 'short',
@@ -319,7 +319,7 @@ export default function UserProfileScreen() {
         {/* Posts Section */}
         <View style={styles.postsSection}>
           <Text style={styles.postsTitle}>Posts</Text>
-          {mockPosts.map((item, index) => (
+          {mockPosts.map((item, _index) => (
             <TouchableOpacity key={item.id} style={styles.postItem} activeOpacity={0.9}>
               <Text style={styles.postTitle}>{item.title}</Text>
               <View style={[styles.postTag, { backgroundColor: item.tagColor }]}>

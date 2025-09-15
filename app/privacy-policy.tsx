@@ -164,7 +164,7 @@ export default function PrivacyPolicyScreen() {
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>8. Children's Privacy</Text>
+            <Text style={styles.sectionTitle}>8. Children&apos;s Privacy</Text>
             <Text style={styles.sectionText}>
               Ladder is not intended for children under 13. We do not knowingly collect personal information 
               from children under 13. If we become aware that we have collected such information, 
@@ -184,7 +184,7 @@ export default function PrivacyPolicyScreen() {
             <Text style={styles.sectionTitle}>10. Changes to This Policy</Text>
             <Text style={styles.sectionText}>
               We may update this Privacy Policy from time to time. We will notify you of any material 
-              changes by posting the new policy in the app and updating the "Last updated" date.
+              changes by posting the new policy in the app and updating the &quot;Last updated&quot; date.
             </Text>
           </View>
 

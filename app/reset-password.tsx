@@ -48,7 +48,7 @@ export default function ResetPasswordScreen() {
           }
         ]
       );
-    } catch (error) {
+    } catch (_error) {
       Alert.alert('Error', 'Failed to reset password. The link may be expired or invalid.');
     } finally {
       setIsLoading(false);

@@ -25,9 +25,7 @@ export default function MyOpportunitiesScreen() {
   const fetchMyOpportunities = async () => {
     try {
       setLoading(true);
-      console.log('Fetching my opportunities...');
       const data = await opportunitiesAPI.getMyOpportunities();
-      console.log('My opportunities:', data);
       setMyOpportunities(data || []);
     } catch (error) {
       console.error('Error fetching my opportunities:', error);
@@ -55,8 +53,8 @@ export default function MyOpportunitiesScreen() {
               await opportunitiesAPI.deleteOpportunity(opportunityId);
               Alert.alert('Success', 'Opportunity deleted successfully!');
               fetchMyOpportunities(); // Refresh the list
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete opportunity');
+            } catch (_error: any) {
+              Alert.alert('Error', _error.message || 'Failed to delete opportunity');
             }
           }
         }
@@ -72,7 +70,7 @@ export default function MyOpportunitiesScreen() {
         month: 'short',
         year: 'numeric'
       });
-    } catch (error) {
+    } catch (_error) {
       return 'Unknown date';
     }
   };
@@ -155,7 +153,7 @@ export default function MyOpportunitiesScreen() {
             </View>
           ) : (
             <View style={styles.opportunitiesList}>
-              {myOpportunities.map((opportunity, index) => (
+              {myOpportunities.map((opportunity, _index) => (
                 <View key={opportunity.id} style={styles.opportunityCard}>
                   {/* Opportunity Image */}
                   <Image 
@@ -225,7 +223,6 @@ export default function MyOpportunitiesScreen() {
                       <TouchableOpacity
                         style={styles.editButton}
                         onPress={() => {
-                          // TODO: Implement edit functionality
                           Alert.alert('Edit', 'Edit functionality coming soon!');
                         }}
                       >

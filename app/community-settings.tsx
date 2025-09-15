@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { communitiesAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
 interface Community {
@@ -16,12 +15,14 @@ interface Community {
   category: string;
   is_public: boolean;
   created_by: number;
+  member_count: number;
+  created_at: string;
 }
 
 export default function CommunitySettingsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const { user } = useUser();
   const { communityId } = useLocalSearchParams();
   
@@ -31,7 +32,7 @@ export default function CommunitySettingsScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  const loadCommunityData = async () => {
+  const loadCommunityData = useCallback(async () => {
     try {
       setLoading(true);
       const communities = await communitiesAPI.getCommunities();
@@ -51,13 +52,13 @@ export default function CommunitySettingsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [communityId]);
 
   useEffect(() => {
     if (communityId) {
       loadCommunityData();
     }
-  }, [communityId]);
+  }, [communityId, loadCommunityData]);
 
   const handleSave = async () => {
     if (!community || !user || community.created_by !== user.id) return;
@@ -133,7 +134,7 @@ export default function CommunitySettingsScreen() {
         </View>
         <View style={styles.content}>
           <Text style={[styles.errorText, { color: colors.text }]}>
-            You don't have permission to edit this community.
+            You don&apos;t have permission to edit this community.
           </Text>
         </View>
       </View>

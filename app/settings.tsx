@@ -31,7 +31,7 @@ export default function SettingsScreen() {
   // Privacy settings
   const [postsOnProfileVisibility, setPostsOnProfileVisibility] = useState('everyone');
   const [showOnlineStatus, setShowOnlineStatus] = useState(true);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   // Modal states
   const [showSelectionModal, setShowSelectionModal] = useState(false);
@@ -71,7 +71,6 @@ export default function SettingsScreen() {
         console.error('Error loading settings:', error);
         // Check if it's an authentication error
         if (error instanceof Error && error.message.includes('401')) {
-          console.log('Authentication failed, user may need to login again');
           // Could redirect to login here if needed
         }
         // Continue with default settings if backend fails
@@ -83,7 +82,7 @@ export default function SettingsScreen() {
     if (user) {
       loadSettings();
     }
-  }, [user]);
+  }, [user, language, setLanguage]);
 
   // Save settings to backend
   const saveSettings = async (settings: {

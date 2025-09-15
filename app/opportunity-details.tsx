@@ -22,7 +22,7 @@ export default function OpportunityDetailsScreen() {
   const params = useLocalSearchParams();
   const [hasUserApplied, setHasUserApplied] = useState(false);
   const [application, setApplication] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [_isLoading, setIsLoading] = useState(true);
   
   // Get data from navigation params
   const opportunity = {
@@ -46,7 +46,7 @@ export default function OpportunityDetailsScreen() {
     field: (params.field as string) || '',
     duration: (params.duration as string) || '',
     application_url: (params.applicationUrl as string) || '',
-    is_external_application: (params.isExternalApplication as boolean) || false,
+    is_external_application: String(params.isExternalApplication) === 'true',
     isFavorite: false
   };
   
@@ -77,7 +77,7 @@ export default function OpportunityDetailsScreen() {
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Text style={styles.errorText}>No opportunity data found</Text>
         <TouchableOpacity 
-          style={styles.backButton} 
+          style={styles.backButtonLarge} 
           onPress={() => router.back()}
         >
           <Text style={styles.backButtonText}>Go Back</Text>
@@ -120,7 +120,7 @@ export default function OpportunityDetailsScreen() {
                         setHasUserApplied(false);
                         setApplication(null);
                         Alert.alert('Application Removed', 'Your application has been removed.');
-                      } catch (error) {
+                      } catch (_error) {
                         Alert.alert('Error', 'Failed to remove application. Please try again.');
                       }
                     }
@@ -147,8 +147,8 @@ export default function OpportunityDetailsScreen() {
               setHasUserApplied(true);
               setApplication({ status: 'applied', created_at: new Date().toISOString() });
               Alert.alert('Success', 'Your application has been submitted successfully!');
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to submit application. Please try again.');
+            } catch (_error: any) {
+              Alert.alert('Error', _error.message || 'Failed to submit application. Please try again.');
             }
           }
         }
@@ -459,6 +459,10 @@ export default function OpportunityDetailsScreen() {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -652,7 +656,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  shareButton: {
+  shareButtonLarge: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
@@ -696,7 +700,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 20,
   },
-  backButton: {
+  backButtonLarge: {
     backgroundColor: '#4f46e5',
     paddingVertical: 12,
     paddingHorizontal: 24,

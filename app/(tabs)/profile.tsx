@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Dimensions, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { profileAPI } from '../../lib/api';
 import { getFormattedFirstName } from '../../lib/utils';
 import { useLanguage } from '../context/LanguageContext';
@@ -22,8 +22,8 @@ interface UserProfile {
 
 
 
-const numColumns = 3;
-const size = Dimensions.get('window').width / numColumns - 16;
+// const numColumns = 3;
+// const size = Dimensions.get('window').width / numColumns - 16; // Not currently used
 
 export default function ProfileScreen() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -41,12 +41,7 @@ export default function ProfileScreen() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      console.log('Fetching profile...');
       const profileData = await profileAPI.getProfile();
-      console.log('Profile data received:', profileData);
-      console.log('Is admin?', profileData.is_admin);
-      console.log('Type of is_admin:', typeof profileData.is_admin);
-      console.log('All profile keys:', Object.keys(profileData));
       setProfile(profileData);
     } catch (err) {
       console.error('Error fetching profile:', err);
@@ -165,11 +160,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
               
               {/* Admin Panel Button - Only show if user is admin */}
-              {(() => {
-                console.log('Checking admin button - profile.is_admin:', profile.is_admin);
-                console.log('Condition result:', (profile.is_admin === true || profile.is_admin === 1));
-                return (profile.is_admin === true || profile.is_admin === 1);
-              })() ? (
+              {(profile.is_admin === true || profile.is_admin === 1) ? (
                 <TouchableOpacity 
                   style={styles.adminButton}
                   onPress={() => router.push('/admin-panel')}

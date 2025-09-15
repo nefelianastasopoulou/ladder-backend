@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { communitiesAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
 interface Member {
@@ -27,7 +26,7 @@ interface Community {
 export default function CommunityMembersScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const { user } = useUser();
   const { communityId } = useLocalSearchParams();
   
@@ -36,7 +35,7 @@ export default function CommunityMembersScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const communities = await communitiesAPI.getCommunities();
@@ -69,13 +68,13 @@ export default function CommunityMembersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [communityId]);
 
   useEffect(() => {
     if (communityId) {
       loadData();
     }
-  }, [communityId]);
+  }, [communityId, loadData]);
 
   const handleRemoveMember = async (memberId: number, memberName: string) => {
     if (!community || !user || community.created_by !== user.id) return;
@@ -219,7 +218,7 @@ export default function CommunityMembersScreen() {
         </View>
         <View style={styles.content}>
           <Text style={[styles.errorText, { color: colors.text }]}>
-            You don't have permission to manage this community's members.
+            You don&apos;t have permission to manage this community&apos;s members.
           </Text>
         </View>
       </View>

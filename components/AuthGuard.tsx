@@ -8,7 +8,7 @@ interface AuthGuardProps {
   fallback?: React.ReactNode;
 }
 
-export default function AuthGuard({ children, fallback }: AuthGuardProps) {
+export default function AuthGuard({ children, fallback: _fallback }: AuthGuardProps) {
   const { user, isLoading } = useUser();
 
   // Show loading screen while checking authentication

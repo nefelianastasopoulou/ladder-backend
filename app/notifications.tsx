@@ -80,7 +80,7 @@ const getNotificationColor = (type: NotificationType) => {
 
 export default function NotificationsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
-  const { notifications, unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
+  const { notifications, unreadCount: _unreadCount, markAsRead, markAllAsRead, clearNotifications } = useNotifications();
   const { t } = useLanguage();
   const [selectedCategory, setSelectedCategory] = useState<'all' | NotificationType>('all');
 

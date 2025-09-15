@@ -180,7 +180,7 @@ export default function FavouritesScreen() {
                     <Image 
                       source={{ uri: item.image }} 
                       style={styles.cardImage}
-                      onError={() => console.log('Image failed to load for:', item.title)}
+                      onError={() => {}}
                     />
                     <View style={styles.cardContent}>
                       <Text style={[styles.cardTitle, { color: '#000' }]}>{item.title}</Text>

@@ -6,22 +6,21 @@ import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, Text
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { chatAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 
 export default function ConversationScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const params = useLocalSearchParams();
   const flatListRef = useRef<FlatList>(null);
   
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [otherUser, setOtherUser] = useState<any>(null);
-  const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null);
+  const [_pollingInterval, setPollingInterval] = useState<number | null>(null);
 
   const conversationIdParam = params.conversationId as string;
   const otherUserId = params.otherUserId as string;
@@ -38,7 +37,7 @@ export default function ConversationScreen() {
       });
       loadMessages(parseInt(conversationIdParam));
     }
-  }, [conversationIdParam]);
+  }, [conversationIdParam, otherUserId, otherUserName, otherUserAvatar]);
 
   useEffect(() => {
     if (conversationId) {

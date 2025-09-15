@@ -3,13 +3,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
 import { searchAPI } from '../../lib/api';
 import { useLanguage } from '../context/LanguageContext';
 
-const { width } = Dimensions.get('window');
+// const { width } = Dimensions.get('window'); // Not currently used
 
 
 
@@ -189,8 +189,8 @@ export default function CommunityScreen() {
 
   const renderPost = ({ item, index }: { item: any; index: number }) => {
     // Split content into lines and take first 3
-    const contentLines = item.content.split('\n');
-    const previewContent = contentLines.slice(0, 3).join('\n') + (contentLines.length > 3 ? '...' : '');
+    // const contentLines = item.content.split('\n');
+    // const previewContent = contentLines.slice(0, 3).join('\n') + (contentLines.length > 3 ? '...' : ''); // Not currently used
     
     return (
       <TouchableOpacity 

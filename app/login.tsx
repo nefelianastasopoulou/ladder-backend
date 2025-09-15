@@ -33,12 +33,8 @@ export default function LoginScreen() {
     setIsLoading(true);
     
     try {
-      console.log('Attempting login with:', { email, isEmail, isUsername });
-      
       // Sign in with our API
       const response = await authAPI.signIn(email, password);
-      
-      console.log('Login successful:', response);
 
       // Store user data in context
       const userData = {

@@ -16,7 +16,6 @@ import {
 } from 'react-native';
 import { adminAPI } from '../lib/api';
 import { getFormattedFirstName } from '../lib/utils';
-import { useLanguage } from './context/LanguageContext';
 
 interface User {
   id: number;
@@ -50,7 +49,7 @@ interface Post {
 
 export default function AdminPanelScreen() {
   const colorScheme = useColorScheme() ?? 'light';
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const [users, setUsers] = useState<User[]>([]);
   const [communities, setCommunities] = useState<Community[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -93,7 +92,7 @@ export default function AdminPanelScreen() {
             try {
               await adminAPI.makeUserAdmin(userId);
               Alert.alert('Success', 'User has been promoted to admin.');
-              fetchUsers(); // Refresh the list
+              loadData(); // Refresh the list
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to promote user to admin.');
             }
@@ -396,21 +395,33 @@ export default function AdminPanelScreen() {
               {activeTab === 'communities' && 'All Communities'}
               {activeTab === 'posts' && 'All Posts'}
             </Text>
-            <FlatList
-              data={
-                activeTab === 'users' ? users :
-                activeTab === 'communities' ? communities :
-                posts
-              }
-              renderItem={
-                activeTab === 'users' ? renderUser :
-                activeTab === 'communities' ? renderCommunity :
-                renderPost
-              }
-              keyExtractor={(item) => item.id.toString()}
-              scrollEnabled={false}
-              ItemSeparatorComponent={() => <View style={styles.separator} />}
-            />
+            {activeTab === 'users' && (
+              <FlatList
+                data={users}
+                renderItem={renderUser}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            )}
+            {activeTab === 'communities' && (
+              <FlatList
+                data={communities}
+                renderItem={renderCommunity}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            )}
+            {activeTab === 'posts' && (
+              <FlatList
+                data={posts}
+                renderItem={renderPost}
+                keyExtractor={(item) => item.id.toString()}
+                scrollEnabled={false}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+              />
+            )}
           </View>
 
           <View style={{ height: 40 }} />

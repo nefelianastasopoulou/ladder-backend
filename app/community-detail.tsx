@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert, FlatList, RefreshControl, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { communitiesAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
 interface Community {
@@ -36,7 +35,7 @@ interface Post {
 export default function CommunityDetailScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const { user } = useUser();
   const { communityId } = useLocalSearchParams();
   
@@ -45,7 +44,7 @@ export default function CommunityDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadCommunityData = async () => {
+  const loadCommunityData = useCallback(async () => {
     try {
       setLoading(true);
       // For now, we'll get community info from the communities list
@@ -74,13 +73,13 @@ export default function CommunityDetailScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [communityId]);
 
   useEffect(() => {
     if (communityId) {
       loadCommunityData();
     }
-  }, [communityId]);
+  }, [communityId, loadCommunityData]);
 
   const handleJoinLeave = async () => {
     if (!community || !user) return;

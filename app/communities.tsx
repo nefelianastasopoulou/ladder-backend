@@ -6,19 +6,18 @@ import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, Touchable
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { communitiesAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
 export default function CommunitiesScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   const { user } = useUser();
   
   const [communities, setCommunities] = useState<any[]>([]);
   const [filteredCommunities, setFilteredCommunities] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState<'all' | 'joined' | 'created'>('all');
 
@@ -69,7 +68,6 @@ export default function CommunitiesScreen() {
 
   const renderCommunity = ({ item }: { item: any }) => {
     // Debug: Log user info
-    console.log('Render community:', item.name, 'User:', user?.id, 'Created by:', item.created_by);
     
     return (
       <TouchableOpacity 

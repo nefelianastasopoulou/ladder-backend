@@ -6,13 +6,12 @@ import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View 
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
 import { communitiesAPI } from '../lib/api';
-import { useLanguage } from './context/LanguageContext';
 
 
 export default function CreateCommunityScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
-  const { t } = useLanguage();
+  // const { t } = useLanguage(); // Not currently used
   
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,7 +31,7 @@ export default function CreateCommunityScreen() {
     setIsCreating(true);
     
     try {
-      const result = await communitiesAPI.createCommunity({
+      const _result = await communitiesAPI.createCommunity({
         name: name.trim(),
         description: description.trim() || '',
         category: 'General'

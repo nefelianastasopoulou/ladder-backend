@@ -16,7 +16,7 @@ export default function SearchScreen() {
   const { t } = useLanguage();
   const [query, setQuery] = useState('');
   const [opportunities, setOpportunities] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [_loading, setLoading] = useState(true);
 
   // Fetch opportunities from backend
   useEffect(() => {
