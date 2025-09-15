@@ -160,6 +160,18 @@ const db = {
 
   // Add query method for compatibility with existing code
   query: (query, params, callback) => {
+    // If no callback is provided, return a promise
+    if (typeof callback !== 'function') {
+      return new Promise((resolve, reject) => {
+        executeQuery(query, params, (err, result) => {
+          if (err) return reject(err);
+          // Return the result object with rows property for compatibility
+          resolve({ rows: result.rows });
+        }, 'query');
+      });
+    }
+    
+    // Callback pattern
     executeQuery(query, params, (err, result) => {
       if (err) return callback(err);
       // Return the result object with rows property for compatibility
