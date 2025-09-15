@@ -1,12 +1,8 @@
 -- Create admin user migration
 -- This creates the initial admin user
+-- NOTE: Admin credentials should be set via environment variables
+-- This migration is kept for reference but should not be used in production
 
--- Insert admin user (password is hashed for 'admin123')
-INSERT INTO users (email, password, full_name, username, is_admin) 
-VALUES (
-  'nefelianastasopoulou12@gmail.com',
-  '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', -- admin123
-  'Admin User',
-  'admin',
-  TRUE
-) ON CONFLICT (email) DO NOTHING;
+-- The admin user should be created using the /admin/setup endpoint
+-- with credentials from environment variables:
+-- ADMIN_EMAIL, ADMIN_USERNAME, ADMIN_PASSWORD

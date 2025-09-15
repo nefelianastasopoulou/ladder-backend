@@ -20,3 +20,6 @@ check-admin-status.js
 make-user-admin.js
 add-admin-column.js
 make-admin.js
+
+# Expo
+.expo/

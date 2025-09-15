@@ -32,4 +32,4 @@ npm start
 
 ## Database
 
-Uses SQLite database with automatic migrations.
+Uses PostgreSQL database with automatic migrations. Make sure PostgreSQL is running and configured in your `.env` file.

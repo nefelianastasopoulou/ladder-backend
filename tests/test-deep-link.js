@@ -1,7 +1,7 @@
 const jwt = require('jsonwebtoken');
 
 // Test token generation
-const JWT_SECRET = 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET || 'test-secret-for-development-only';
 
 const testToken = jwt.sign(
   { id: 1, email: 'test@example.com', type: 'password_reset' },
@@ -9,7 +9,7 @@ const testToken = jwt.sign(
   { expiresIn: '1h' }
 );
 
-const resetLink = `myfirstapp://reset-password?token=${testToken}`;
+const resetLink = `ladder://reset-password?token=${testToken}`;
 
 console.log('Test Reset Link:');
 console.log(resetLink);

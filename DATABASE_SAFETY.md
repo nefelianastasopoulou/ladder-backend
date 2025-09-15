@@ -30,13 +30,13 @@ If you must restore from backup:
 # Find the backup file
 ls backups/
 
-# Copy backup to main database
-cp backups/database-backup-[timestamp].sqlite database.sqlite
+# Restore from PostgreSQL backup (PostgreSQL-specific commands)
+# Note: PostgreSQL backup/restore is handled by the database server
 ```
 
 ## ❌ NEVER DO THESE
 
-- ❌ `rm database.sqlite` or `del database.sqlite`
+- ❌ Dropping PostgreSQL database or tables
 - ❌ Recreating database from scratch
 - ❌ Running server without backup first
 - ❌ Any operation that deletes user data

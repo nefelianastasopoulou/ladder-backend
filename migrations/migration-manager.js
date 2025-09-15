@@ -4,9 +4,10 @@ const path = require('path');
 
 class MigrationManager {
   constructor() {
+    const isLocal = process.env.DATABASE_URL && process.env.DATABASE_URL.includes('127.0.0.1');
     this.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: {
+      ssl: isLocal ? false : {
         rejectUnauthorized: false
       }
     });
