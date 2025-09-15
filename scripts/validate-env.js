@@ -36,7 +36,7 @@ const optionalEnvVars = {
 };
 
 function validateEnvironmentVariables() {
-  console.log('🔍 Validating environment variables...\n');
+  console.log('Validating environment variables...\n');
   
   let hasErrors = false;
   
@@ -103,7 +103,7 @@ function validateEnvironmentVariables() {
   }
 
   // Display current configuration
-  console.log('📋 Current environment configuration:');
+  console.log('Current environment configuration:');
   console.log(`   NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
   console.log(`   PORT: ${process.env.PORT || '3001'}`);
   console.log(`   LOG_LEVEL: ${process.env.LOG_LEVEL || 'info'}`);
@@ -116,10 +116,10 @@ function validateEnvironmentVariables() {
   console.log(`   JWT_SECRET: ${process.env.JWT_SECRET ? `✅ Set (${process.env.JWT_SECRET.length} chars)` : '❌ Not set'}`);
 
   if (hasErrors) {
-    console.log('\n❌ Environment validation failed. Please fix the issues above.');
+    console.log('\nEnvironment validation failed. Please fix the issues above.');
     process.exit(1);
   } else {
-    console.log('\n✅ All environment variables are valid!');
+    console.log('\nAll environment variables are valid!');
   }
 }
 

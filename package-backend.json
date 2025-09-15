@@ -6,7 +6,10 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "echo 'No build step required for Node.js'"
+    "build": "echo 'No build step required for Node.js'",
+    "validate-env": "node scripts/validate-env.js",
+    "run-migration": "node scripts/run-migration.js",
+    "postinstall": "npm run validate-env"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
