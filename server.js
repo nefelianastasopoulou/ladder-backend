@@ -547,11 +547,11 @@ const runMigrations = require('./run-migrations');
 
 const initializeDatabase = async () => {
   try {
-    console.log('🔄 Running database migrations...');
+    logger.info('Running database migrations...');
     await runMigrations();
-    console.log('✅ Database initialization completed successfully!');
+    logger.info('Database initialization completed successfully!');
   } catch (error) {
-    console.error('❌ Database initialization failed:', error);
+    logger.error('Database initialization failed', { error: error.message, stack: error.stack });
     process.exit(1);
   }
 };
