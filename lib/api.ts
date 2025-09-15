@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Mock API for now - simulates real backend
-const API_BASE_URL = 'https://web-production-b1a6.up.railway.app/api';
+const API_BASE_URL = 'http://localhost:3001/api';
 
 // Fallback mock data for testing when API is not available
 const MOCK_OPPORTUNITIES = [
@@ -468,6 +468,12 @@ export const communitiesAPI = {
   leaveCommunity: async (communityId: number) => {
     return await apiRequest(`/communities/${communityId}/leave`, {
       method: 'POST',
+    });
+  },
+
+  deleteCommunity: async (communityId: number) => {
+    return await apiRequest(`/communities/${communityId}`, {
+      method: 'DELETE',
     });
   },
 };
