@@ -674,52 +674,6 @@ app.get('/health/database', authenticateToken, requireAdmin, (req, res) => {
   }
 });
 
-// Readiness check for load balancers
-app.get('/health/ready', (req, res) => {
-  // Simple check - if server is running, it's ready
-  sendSuccessResponse(res, 200, {
-    status: 'READY',
-    message: 'Service is ready to accept requests'
-  });
-});
-
-// Liveness check for container orchestration
-app.get('/health/live', (req, res) => {
-  // Simple check - if server is running, it's alive
-  sendSuccessResponse(res, 200, {
-    status: 'ALIVE',
-    message: 'Service is alive'
-  });
-});
-
-// Database performance monitoring endpoint (admin only)
-app.get('/health/database', authenticateToken, requireAdmin, (req, res) => {
-  try {
-    const dbStats = db.getStats();
-    sendSuccessResponse(res, 200, {
-      status: 'OK',
-      database: {
-        performance: {
-          totalQueries: dbStats.totalQueries,
-          slowQueries: dbStats.slowQueries,
-          slowQueryPercentage: dbStats.slowQueryPercentage + '%',
-          averageQueryTime: Math.round(dbStats.averageTime) + 'ms',
-          totalQueryTime: dbStats.totalTime + 'ms'
-        },
-        connectionPool: {
-          totalConnections: dbStats.poolStats.totalCount,
-          idleConnections: dbStats.poolStats.idleCount,
-          waitingClients: dbStats.poolStats.waitingCount,
-          utilizationPercentage: dbStats.poolStats.totalCount > 0 ? 
-            Math.round((dbStats.poolStats.totalCount - dbStats.poolStats.idleCount) / dbStats.poolStats.totalCount * 100) + '%' : '0%'
-        }
-      }
-    });
-  } catch (error) {
-    logger.error('Database health check error:', error);
-    sendErrorResponse(res, 500, 'Database health check failed');
-  }
-});
 
 // Reset database performance statistics (admin only)
 app.post('/health/database/reset', authenticateToken, requireAdmin, (req, res) => {
