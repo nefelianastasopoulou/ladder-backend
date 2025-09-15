@@ -4,12 +4,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const getApiBaseUrl = () => {
   // Check if we're in development mode
   if (__DEV__) {
-    // For testing with multiple people, use the ngrok URL
-    // Replace this with your actual ngrok URL when testing
-    return 'https://be69acdae47e.ngrok-free.app/api';
-    
     // For local testing only, use localhost:
-    // return 'http://localhost:3001/api';
+    return 'http://localhost:3001/api';
+    
+    // For testing with multiple people, use ngrok (when needed):
+    // return 'https://your-ngrok-url.ngrok-free.app/api';
   }
   
   // For production, use environment variable or fallback
