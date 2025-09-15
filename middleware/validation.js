@@ -1,11 +1,6 @@
-/**
- * Input Validation Middleware
- * Provides comprehensive validation for API endpoints
- */
-
 const { ValidationError } = require('./errorHandler');
 
-// Common validation rules
+// Validation rules
 const validationRules = {
   email: {
     required: true,
@@ -17,18 +12,18 @@ const validationRules = {
   password: {
     required: true,
     type: 'string',
-    minLength: 6,
-    pattern: /^(?=.*[a-zA-Z])(?=.*\d).+$/,
-    message: 'Password must be at least 6 characters with at least one letter and one number'
+    minLength: 8,
+    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    message: 'Password must be at least 8 characters with uppercase, lowercase, number, and special character'
   },
   
   username: {
     required: true,
     type: 'string',
     minLength: 3,
-    maxLength: 30,
+    maxLength: 20,
     pattern: /^[a-zA-Z0-9_]+$/,
-    message: 'Username must be 3-30 characters, letters, numbers, and underscores only'
+    message: 'Username must be 3-20 characters, letters, numbers, and underscores only'
   },
   
   fullName: {
@@ -36,132 +31,85 @@ const validationRules = {
     type: 'string',
     minLength: 2,
     maxLength: 100,
-    message: 'Full name must be 2-100 characters'
+    message: 'Full name must be between 2 and 100 characters'
   },
   
-  communityName: {
-    required: true,
-    type: 'string',
-    minLength: 3,
-    maxLength: 50,
-    pattern: /^[a-zA-Z0-9\s\-_]+$/,
-    message: 'Community name must be 3-50 characters, letters, numbers, spaces, hyphens, and underscores only'
-  },
-  
-  postTitle: {
-    required: true,
-    type: 'string',
-    minLength: 5,
-    maxLength: 200,
-    message: 'Post title must be 5-200 characters'
-  },
-  
-  postContent: {
+  content: {
     required: true,
     type: 'string',
     minLength: 10,
-    maxLength: 10000,
-    message: 'Post content must be 10-10000 characters'
-  },
-  
-  opportunityTitle: {
-    required: true,
-    type: 'string',
-    minLength: 5,
-    maxLength: 200,
-    message: 'Opportunity title must be 5-200 characters'
-  },
-  
-  opportunityDescription: {
-    required: true,
-    type: 'string',
-    minLength: 20,
     maxLength: 5000,
-    message: 'Opportunity description must be 20-5000 characters'
-  }
-};
-
-// Validation helper function
-const validateField = (value, rule, fieldName) => {
-  const errors = [];
-
-  // Check required
-  if (rule.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-    errors.push(`${fieldName} is required`);
-    return errors;
-  }
-
-  // Skip further validation if value is empty and not required
-  if (!value || (typeof value === 'string' && value.trim() === '')) {
-    return errors;
-  }
-
-  // Check type
-  if (rule.type && typeof value !== rule.type) {
-    errors.push(`${fieldName} must be a ${rule.type}`);
-    return errors;
-  }
-
-  // Check string length
-  if (rule.type === 'string') {
-    if (rule.minLength && value.length < rule.minLength) {
-      errors.push(`${fieldName} must be at least ${rule.minLength} characters`);
-    }
-    if (rule.maxLength && value.length > rule.maxLength) {
-      errors.push(`${fieldName} must be no more than ${rule.maxLength} characters`);
-    }
-  }
-
-  // Check pattern
-  if (rule.pattern && !rule.pattern.test(value)) {
-    errors.push(rule.message || `${fieldName} format is invalid`);
-  }
-
-  return errors;
-};
-
-// Main validation middleware factory
-const validate = (schema) => {
-  return (req, res, next) => {
-    const errors = [];
-    const data = req.body;
-
-    // Validate each field in the schema
-    for (const [fieldName, rule] of Object.entries(schema)) {
-      const fieldErrors = validateField(data[fieldName], rule, fieldName);
-      errors.push(...fieldErrors);
-    }
-
-    // Check for unexpected fields (optional)
-    if (schema._strict) {
-      const allowedFields = Object.keys(schema).filter(key => !key.startsWith('_'));
-      const unexpectedFields = Object.keys(data).filter(field => !allowedFields.includes(field));
-      if (unexpectedFields.length > 0) {
-        errors.push(`Unexpected fields: ${unexpectedFields.join(', ')}`);
-      }
-    }
-
-    if (errors.length > 0) {
-      return next(new ValidationError(errors.join('; ')));
-    }
-
-    next();
-  };
-};
-
-// Predefined validation schemas
-const schemas = {
-  // Authentication
-  login: {
-    email: validationRules.email,
-    password: { required: true, type: 'string' }
+    message: 'Content must be between 10 and 5000 characters'
   },
   
-  register: {
+  title: {
+    required: true,
+    type: 'string',
+    minLength: 3,
+    maxLength: 200,
+    message: 'Title must be between 3 and 200 characters'
+  }
+};
+
+// Generic validation function
+const validate = (data, schema) => {
+  const errors = [];
+  
+  for (const [field, rules] of Object.entries(schema)) {
+    const value = data[field];
+    
+    // Check required fields
+    if (rules.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      errors.push(`${field} is required`);
+      continue;
+    }
+    
+    // Skip validation if field is not required and not provided
+    if (!rules.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
+      continue;
+    }
+    
+    // Type validation
+    if (rules.type && typeof value !== rules.type) {
+      errors.push(`${field} must be a ${rules.type}`);
+      continue;
+    }
+    
+    // Length validation
+    if (rules.minLength && value.length < rules.minLength) {
+      errors.push(`${field} must be at least ${rules.minLength} characters long`);
+    }
+    
+    if (rules.maxLength && value.length > rules.maxLength) {
+      errors.push(`${field} must be no more than ${rules.maxLength} characters long`);
+    }
+    
+    // Pattern validation
+    if (rules.pattern && !rules.pattern.test(value)) {
+      errors.push(rules.message || `${field} format is invalid`);
+    }
+  }
+  
+  if (errors.length > 0) {
+    throw new ValidationError('Validation failed', errors);
+  }
+  
+  return true;
+};
+
+// Specific validation schemas
+const schemas = {
+  signup: {
     email: validationRules.email,
     password: validationRules.password,
-    full_name: validationRules.fullName,
-    username: validationRules.username
+    username: validationRules.username,
+    fullName: validationRules.fullName
+  },
+  
+  login: {
+    email: { ...validationRules.email, required: false },
+    username: { ...validationRules.username, required: false },
+    password: validationRules.password
   },
   
   changePassword: {
@@ -169,89 +117,103 @@ const schemas = {
     newPassword: validationRules.password
   },
   
-  // Profile
-  updateProfile: {
-    full_name: { ...validationRules.fullName, required: false },
-    username: { ...validationRules.username, required: false },
-    bio: { type: 'string', maxLength: 500 },
-    location: { type: 'string', maxLength: 100 },
-    website: { type: 'string', maxLength: 200 }
+  post: {
+    title: validationRules.title,
+    content: validationRules.content
   },
   
-  // Communities
-  createCommunity: {
-    name: validationRules.communityName,
-    description: { required: true, type: 'string', minLength: 10, maxLength: 1000 },
-    category: { type: 'string', maxLength: 50 }
+  community: {
+    name: {
+      required: true,
+      type: 'string',
+      minLength: 3,
+      maxLength: 50,
+      pattern: /^[a-zA-Z0-9\s_-]+$/,
+      message: 'Community name must be 3-50 characters, letters, numbers, spaces, hyphens, and underscores only'
+    },
+    description: {
+      required: false,
+      type: 'string',
+      maxLength: 500,
+      message: 'Description must be no more than 500 characters'
+    }
   },
   
-  updateCommunity: {
-    name: { ...validationRules.communityName, required: false },
-    description: { type: 'string', minLength: 10, maxLength: 1000 },
-    category: { type: 'string', maxLength: 50 }
-  },
-  
-  // Posts
-  createPost: {
-    title: validationRules.postTitle,
-    content: validationRules.postContent,
-    community_id: { required: true, type: 'number' }
-  },
-  
-  updatePost: {
-    title: { ...validationRules.postTitle, required: false },
-    content: { ...validationRules.postContent, required: false }
-  },
-  
-  // Opportunities
-  createOpportunity: {
-    title: validationRules.opportunityTitle,
-    description: validationRules.opportunityDescription,
-    category: { required: true, type: 'string', maxLength: 50 },
-    deadline: { type: 'string' }, // ISO date string
-    requirements: { type: 'string', maxLength: 2000 },
-    benefits: { type: 'string', maxLength: 2000 }
-  },
-  
-  updateOpportunity: {
-    title: { ...validationRules.opportunityTitle, required: false },
-    description: { ...validationRules.opportunityDescription, required: false },
-    category: { type: 'string', maxLength: 50 },
-    deadline: { type: 'string' },
-    requirements: { type: 'string', maxLength: 2000 },
-    benefits: { type: 'string', maxLength: 2000 }
-  },
-  
-  // Messages
-  sendMessage: {
-    content: { required: true, type: 'string', minLength: 1, maxLength: 2000 },
-    conversation_id: { required: true, type: 'number' }
-  },
-  
-  // Reports
-  createReport: {
-    reported_type: { required: true, type: 'string', enum: ['post', 'user', 'community', 'opportunity'] },
-    reported_id: { required: true, type: 'number' },
-    reason: { required: true, type: 'string', minLength: 10, maxLength: 500 },
-    description: { type: 'string', maxLength: 1000 }
+  profile: {
+    fullName: validationRules.fullName,
+    username: validationRules.username,
+    bio: {
+      required: false,
+      type: 'string',
+      maxLength: 500,
+      message: 'Bio must be no more than 500 characters'
+    },
+    location: {
+      required: false,
+      type: 'string',
+      maxLength: 100,
+      message: 'Location must be no more than 100 characters'
+    }
   }
+};
+
+// Middleware factory for validation
+const validateRequest = (schemaName) => {
+  return (req, res, next) => {
+    try {
+      const schema = schemas[schemaName];
+      if (!schema) {
+        throw new Error(`Validation schema '${schemaName}' not found`);
+      }
+      
+      // Validate request body
+      validate(req.body, schema);
+      
+      // Check for unexpected fields
+      const allowedFields = Object.keys(schema).filter(key => !key.startsWith('_'));
+      const unexpectedFields = Object.keys(req.body).filter(field => !allowedFields.includes(field));
+      
+      if (unexpectedFields.length > 0) {
+        throw new ValidationError(`Unexpected fields: ${unexpectedFields.join(', ')}`);
+      }
+      
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+};
+
+// Content length validation middleware
+const validateContentLength = (maxLength = 10000) => {
+  return (req, res, next) => {
+    const contentLength = req.get('content-length');
+    if (contentLength && parseInt(contentLength) > maxLength) {
+      return res.status(413).json({
+        success: false,
+        error: {
+          message: `Request too large. Maximum size is ${maxLength} bytes.`,
+          status: 413,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+    next();
+  };
 };
 
 // Sanitization middleware
 const sanitize = (req, res, next) => {
   const sanitizeString = (str) => {
     if (typeof str !== 'string') return str;
-    
     return str
-      .trim()
-      .replace(/[<>]/g, '') // Remove potential HTML tags
-      .replace(/javascript:/gi, '') // Remove javascript: protocol
-      .replace(/on\w+=/gi, ''); // Remove event handlers
+      .replace(/[<>]/g, '') // Remove < and > to prevent HTML injection
+      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .trim();
   };
-
+  
   const sanitizeObject = (obj) => {
     if (typeof obj !== 'object' || obj === null) return obj;
-    
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
@@ -264,31 +226,23 @@ const sanitize = (req, res, next) => {
     }
     return sanitized;
   };
-
-  req.body = sanitizeObject(req.body);
-  req.query = sanitizeObject(req.query);
-  req.params = sanitizeObject(req.params);
+  
+  if (req.body) {
+    req.body = sanitizeObject(req.body);
+  }
+  
+  if (req.query) {
+    req.query = sanitizeObject(req.query);
+  }
   
   next();
 };
 
-// Content length validation
-const validateContentLength = (maxLength = 10 * 1024 * 1024) => { // 10MB default
-  return (req, res, next) => {
-    const contentLength = parseInt(req.get('Content-Length') || '0');
-    
-    if (contentLength > maxLength) {
-      return next(new ValidationError(`Request entity too large. Maximum size: ${maxLength} bytes`));
-    }
-    
-    next();
-  };
-};
-
 module.exports = {
   validate,
-  sanitize,
+  validateRequest,
   validateContentLength,
+  sanitize,
   schemas,
   validationRules
 };

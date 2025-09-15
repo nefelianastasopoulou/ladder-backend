@@ -17,11 +17,7 @@ class UserService {
   async createUser(userData) {
     const { email, password, full_name, username } = userData;
 
-    // Check if user already exists
-    const existingUser = await this.getUserByEmail(email);
-    if (existingUser) {
-      throw new ConflictError('User with this email already exists');
-    }
+    // Note: Email uniqueness check removed - multiple users can have the same email
 
     const existingUsername = await this.getUserByUsername(username);
     if (existingUsername) {

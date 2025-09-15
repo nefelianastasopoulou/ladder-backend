@@ -14,7 +14,7 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
   if (!token) {
-    return next(new AuthenticationError('Access token required'));
+    return res.status(401).json({ error: 'Access token required' });
   }
 
   try {
@@ -22,7 +22,7 @@ const authenticateToken = (req, res, next) => {
     
     // Add user info to request
     req.user = {
-      id: decoded.userId,
+      id: decoded.id || decoded.userId, // Support both formats
       email: decoded.email,
       username: decoded.username,
       is_admin: decoded.is_admin || false
@@ -41,11 +41,11 @@ const authenticateToken = (req, res, next) => {
     });
 
     if (error.name === 'TokenExpiredError') {
-      return next(new AuthenticationError('Token expired'));
+      return res.status(403).json({ error: 'Token expired' });
     } else if (error.name === 'JsonWebTokenError') {
-      return next(new AuthenticationError('Invalid token'));
+      return res.status(403).json({ error: 'Invalid token' });
     } else {
-      return next(new AuthenticationError('Token validation failed'));
+      return res.status(403).json({ error: 'Token validation failed' });
     }
   }
 };
@@ -79,7 +79,7 @@ const optionalAuth = (req, res, next) => {
 // Admin role requirement middleware
 const requireAdmin = (req, res, next) => {
   if (!req.user) {
-    return next(new AuthenticationError('Authentication required'));
+    return res.status(401).json({ error: 'Authentication required' });
   }
 
   if (!req.user.is_admin) {
@@ -88,7 +88,7 @@ const requireAdmin = (req, res, next) => {
       email: req.user.email,
       attemptedAction: req.originalUrl
     });
-    return next(new AuthorizationError('Admin privileges required'));
+    return res.status(403).json({ error: 'Admin access required' });
   }
 
   next();

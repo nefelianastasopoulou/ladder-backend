@@ -2,8 +2,7 @@
 -- This migration adds indexes to improve database performance
 
 -- Indexes for users table
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
+-- Note: email index already exists from migration 004, username index exists due to UNIQUE constraint
 CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at);
 
 -- Indexes for posts table
@@ -67,8 +66,8 @@ CREATE INDEX IF NOT EXISTS idx_user_profiles_user_id ON user_profiles(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
 
 -- Indexes for password_reset_tokens table
+-- Note: token index already exists due to UNIQUE constraint
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user_id ON password_reset_tokens(user_id);
-CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires_at ON password_reset_tokens(expires_at);
 
 -- Composite indexes for common query patterns

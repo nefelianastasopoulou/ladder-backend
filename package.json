@@ -15,7 +15,9 @@
     "test-refactored": "node tests/refactored-server-test.js",
     "test": "npm run test-suite",
     "seed": "node seed-data.js",
-    "postinstall": "npm run migrate"
+    "validate-env": "node scripts/validate-env.js",
+    "run-migration": "node scripts/run-migration.js",
+    "postinstall": "npm run validate-env && npm run migrate"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

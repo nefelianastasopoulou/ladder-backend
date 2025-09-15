@@ -1,69 +1,38 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-// Production database configuration (PostgreSQL only)
+// Development database configuration
+console.log('🔗 Using PostgreSQL for development environment');
+
+// For development, we can use a local PostgreSQL database or the same as production
 if (!process.env.DATABASE_URL) {
   console.error('DATABASE_URL environment variable is not set');
   process.exit(1);
 }
 
-console.log('Connecting to PostgreSQL database...');
+console.log('Connecting to PostgreSQL database for development...');
 
-// Enhanced connection pool configuration for performance
+// Development connection pool configuration
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
-  ssl: getSSLConfig(),
-  // Connection pool settings
-  max: parseInt(process.env.DB_POOL_MAX) || 20, // Maximum number of clients in the pool
-  min: parseInt(process.env.DB_POOL_MIN) || 2,  // Minimum number of clients in the pool
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000, // Return an error after 2 seconds if connection could not be established
-  maxUses: parseInt(process.env.DB_MAX_USES) || 7500, // Close (and replace) a connection after it has been used this many times
-  allowExitOnIdle: true, // Allow the pool to close all connections and exit if no connections are in use
+  ssl: false, // Disable SSL for local development
+  // Smaller pool for development
+  max: parseInt(process.env.DB_POOL_MAX) || 10,
+  min: parseInt(process.env.DB_POOL_MIN) || 1,
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 10000,
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000,
+  maxUses: parseInt(process.env.DB_MAX_USES) || 1000,
+  allowExitOnIdle: true,
 };
-
-// SSL configuration helper
-function getSSLConfig() {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const forceSSL = process.env.DATABASE_SSL === 'true';
-  
-  // In development, only use SSL if explicitly forced
-  if (!isProduction && !forceSSL) {
-    return false;
-  }
-  
-  // In production or when SSL is forced, configure SSL
-  const sslConfig = {
-    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false'
-  };
-  
-  // Add SSL certificates if provided
-  if (process.env.DATABASE_SSL_CA) {
-    sslConfig.ca = process.env.DATABASE_SSL_CA;
-  }
-  if (process.env.DATABASE_SSL_CERT) {
-    sslConfig.cert = process.env.DATABASE_SSL_CERT;
-  }
-  if (process.env.DATABASE_SSL_KEY) {
-    sslConfig.key = process.env.DATABASE_SSL_KEY;
-  }
-  
-  // If no certificates are provided, use basic SSL
-  if (!sslConfig.ca && !sslConfig.cert && !sslConfig.key) {
-    return sslConfig.rejectUnauthorized ? true : sslConfig;
-  }
-  
-  return sslConfig;
-}
 
 const pool = new Pool(poolConfig);
 
 // Log pool configuration
-console.log(`📊 Database pool configured: max=${poolConfig.max}, min=${poolConfig.min}, idleTimeout=${poolConfig.idleTimeoutMillis}ms`);
+console.log(`📊 Development database pool configured: max=${poolConfig.max}, min=${poolConfig.min}, idleTimeout=${poolConfig.idleTimeoutMillis}ms`);
 
 // Test the connection
 pool.on('connect', (client) => {
-  console.log('✅ Connected to PostgreSQL database');
+  console.log('✅ Connected to PostgreSQL database (development)');
   // Test the connection with a simple query
   client.query('SELECT NOW()', (err, result) => {
     if (err) {
@@ -93,7 +62,7 @@ pool.on('remove', (client) => {
   console.log('📤 Database client removed from pool');
 });
 
-// Database performance monitoring
+// Database performance monitoring (simplified for development)
 const queryStats = {
   totalQueries: 0,
   slowQueries: 0,
@@ -101,7 +70,7 @@ const queryStats = {
   totalTime: 0
 };
 
-const SLOW_QUERY_THRESHOLD = parseInt(process.env.SLOW_QUERY_THRESHOLD) || 1000; // 1 second
+const SLOW_QUERY_THRESHOLD = parseInt(process.env.SLOW_QUERY_THRESHOLD) || 2000; // 2 seconds for development
 
 // Enhanced query wrapper with performance monitoring
 const executeQuery = (query, params, callback, queryType = 'unknown') => {
@@ -204,7 +173,5 @@ const db = {
     pool.end(callback);
   }
 };
-
-// console.log('Connected to PostgreSQL database');
 
 module.exports = db;

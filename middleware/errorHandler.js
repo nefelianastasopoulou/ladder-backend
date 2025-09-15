@@ -1,135 +1,132 @@
-/**
- * Comprehensive Error Handling Middleware
- * Provides consistent error handling across the application
- */
-
 const logger = require('../utils/logger');
 
 // Custom Error Classes
 class AppError extends Error {
-  constructor(message, statusCode, isOperational = true) {
+  constructor(message, statusCode) {
     super(message);
     this.statusCode = statusCode;
-    this.isOperational = isOperational;
-    this.timestamp = new Date().toISOString();
-    
+    this.isOperational = true;
     Error.captureStackTrace(this, this.constructor);
   }
 }
 
 class ValidationError extends AppError {
-  constructor(message, field = null) {
+  constructor(message, details = []) {
     super(message, 400);
-    this.field = field;
-    this.type = 'VALIDATION_ERROR';
+    this.details = details;
   }
 }
 
 class AuthenticationError extends AppError {
   constructor(message = 'Authentication required') {
     super(message, 401);
-    this.type = 'AUTHENTICATION_ERROR';
   }
 }
 
 class AuthorizationError extends AppError {
   constructor(message = 'Insufficient permissions') {
     super(message, 403);
-    this.type = 'AUTHORIZATION_ERROR';
   }
 }
 
 class NotFoundError extends AppError {
-  constructor(resource = 'Resource') {
-    super(`${resource} not found`, 404);
-    this.type = 'NOT_FOUND_ERROR';
+  constructor(message = 'Resource not found') {
+    super(message, 404);
   }
 }
 
 class ConflictError extends AppError {
   constructor(message = 'Resource conflict') {
     super(message, 409);
-    this.type = 'CONFLICT_ERROR';
   }
 }
 
 class DatabaseError extends AppError {
   constructor(message = 'Database operation failed', originalError = null) {
     super(message, 500);
-    this.type = 'DATABASE_ERROR';
     this.originalError = originalError;
   }
 }
 
-// Error Response Formatter
-const formatErrorResponse = (error, req) => {
-  const isDevelopment = process.env.NODE_ENV === 'development';
+// Async error wrapper
+const asyncHandler = (fn) => {
+  return (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+  };
+};
+
+// Database error handler
+const handleDatabaseError = (err, res, operation = 'database operation') => {
+  logger.error(`Database error during ${operation}:`, { 
+    error: err.message, 
+    operation, 
+    stack: err.stack 
+  });
   
-  const response = {
+  if (err.code === '23505') { // Unique constraint violation
+    return sendErrorResponse(res, 409, 'Resource already exists');
+  } else if (err.code === '23503') { // Foreign key constraint violation
+    return sendErrorResponse(res, 400, 'Referenced resource does not exist');
+  } else if (err.code === '23502') { // Not null constraint violation
+    return sendErrorResponse(res, 400, 'Required field is missing');
+  } else {
+    return sendErrorResponse(res, 500, 'Database operation failed');
+  }
+};
+
+// Standardized error response
+const sendErrorResponse = (res, statusCode, message, details = null) => {
+  const errorResponse = {
     success: false,
     error: {
-      message: error.message,
-      type: error.type || 'UNKNOWN_ERROR',
-      status: error.statusCode || 500,
-      timestamp: error.timestamp || new Date().toISOString(),
-      requestId: req.id || 'unknown'
+      message,
+      status: statusCode,
+      timestamp: new Date().toISOString()
     }
   };
 
-  // Add additional details in development
-  if (isDevelopment) {
-    response.error.stack = error.stack;
-    response.error.details = {
-      url: req.originalUrl,
-      method: req.method,
-      userAgent: req.get('User-Agent'),
-      ip: req.ip
-    };
+  if (details) {
+    errorResponse.error.details = details;
   }
 
-  // Add field information for validation errors
-  if (error.field) {
-    response.error.field = error.field;
+  // Add request ID if available
+  if (res.locals.requestId) {
+    errorResponse.error.requestId = res.locals.requestId;
   }
 
-  return response;
+  return res.status(statusCode).json(errorResponse);
 };
 
-// Database Error Handler
-const handleDatabaseError = (err, operation = 'database operation') => {
-  logger.error(`Database error during ${operation}:`, {
-    error: err.message,
-    code: err.code,
-    detail: err.detail,
-    operation
-  });
+// Standardized success response
+const sendSuccessResponse = (res, statusCode, data = null, message = null) => {
+  const successResponse = {
+    success: true,
+    status: statusCode,
+    timestamp: new Date().toISOString()
+  };
 
-  // Handle specific PostgreSQL errors
-  if (err.code) {
-    switch (err.code) {
-      case '23505': // Unique violation
-        return new ConflictError('Resource already exists');
-      case '23503': // Foreign key violation
-        return new ValidationError('Referenced resource does not exist');
-      case '23502': // Not null violation
-        return new ValidationError('Required field is missing');
-      case '42P01': // Undefined table
-        return new DatabaseError('Database schema error');
-      case 'ECONNREFUSED':
-        return new DatabaseError('Database connection failed');
-      default:
-        return new DatabaseError(`Database error: ${err.message}`, err);
-    }
+  if (message) {
+    successResponse.message = message;
   }
 
-  return new DatabaseError(`Database operation failed: ${err.message}`, err);
+  if (data) {
+    successResponse.data = data;
+  }
+
+  // Add request ID if available
+  if (res.locals.requestId) {
+    successResponse.requestId = res.locals.requestId;
+  }
+
+  return res.status(statusCode).json(successResponse);
 };
 
-// Global Error Handler Middleware
+// Global error handler
 const globalErrorHandler = (err, req, res, next) => {
-  let error = err;
+  let error = { ...err };
+  error.message = err.message;
 
-  // Log the error
+  // Log error
   logger.error('Global error handler:', {
     error: err.message,
     stack: err.stack,
@@ -139,93 +136,69 @@ const globalErrorHandler = (err, req, res, next) => {
     userAgent: req.get('User-Agent')
   });
 
-  // Convert known error types
+  // Mongoose bad ObjectId
+  if (err.name === 'CastError') {
+    const message = 'Resource not found';
+    error = new NotFoundError(message);
+  }
+
+  // Mongoose duplicate key
+  if (err.code === 11000) {
+    const message = 'Duplicate field value entered';
+    error = new ConflictError(message);
+  }
+
+  // Mongoose validation error
   if (err.name === 'ValidationError') {
-    error = new ValidationError(err.message);
-  } else if (err.name === 'JsonWebTokenError') {
-    error = new AuthenticationError('Invalid token');
-  } else if (err.name === 'TokenExpiredError') {
-    error = new AuthenticationError('Token expired');
-  } else if (err.name === 'CastError') {
-    error = new ValidationError('Invalid data format');
-  } else if (err.code && err.code.startsWith('23')) {
-    // PostgreSQL constraint errors
-    error = handleDatabaseError(err);
-  } else if (!(err instanceof AppError)) {
-    // Unknown error - don't expose internal details
-    error = new AppError('Internal server error', 500);
+    const message = Object.values(err.errors).map(val => val.message).join(', ');
+    error = new ValidationError(message);
   }
 
-  // Send error response
-  const errorResponse = formatErrorResponse(error, req);
-  res.status(error.statusCode || 500).json(errorResponse);
-};
+  // JWT errors
+  if (err.name === 'JsonWebTokenError') {
+    const message = 'Invalid token';
+    error = new AuthenticationError(message);
+  }
 
-// Async Error Wrapper
-const asyncHandler = (fn) => {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
+  if (err.name === 'TokenExpiredError') {
+    const message = 'Token expired';
+    error = new AuthenticationError(message);
+  }
 
-// Database Operation Wrapper
-const dbOperation = (operation, query, params = []) => {
-  return new Promise((resolve, reject) => {
-    operation(query, params, (err, result) => {
-      if (err) {
-        reject(handleDatabaseError(err, 'database operation'));
-      } else {
-        resolve(result);
-      }
-    });
-  });
-};
+  // Database errors
+  if (err.code && err.code.startsWith('23')) {
+    return handleDatabaseError(err, res, 'database operation');
+  }
 
-// Validation Helper
-const validateRequired = (fields, data) => {
-  const missing = [];
-  const errors = [];
-  
-  for (const field of fields) {
-    if (!data[field] || (typeof data[field] === 'string' && data[field].trim() === '')) {
-      missing.push(field);
+  // Default to 500 server error
+  const statusCode = error.statusCode || 500;
+  const message = error.message || 'Server Error';
+
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  const errorResponse = {
+    success: false,
+    error: {
+      message,
+      status: statusCode,
+      timestamp: new Date().toISOString()
     }
-  }
-  
-  if (missing.length > 0) {
-    errors.push(new ValidationError(`Missing required fields: ${missing.join(', ')}`));
-  }
-  
-  return errors;
-};
+  };
 
-// Email Validation
-const validateEmail = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new ValidationError('Invalid email format', 'email');
+  // Include stack trace in development
+  if (isDevelopment) {
+    errorResponse.error.stack = err.stack;
   }
-  return true;
-};
 
-// Password Validation
-const validatePassword = (password) => {
-  if (password.length < 6) {
-    throw new ValidationError('Password must be at least 6 characters long', 'password');
+  // Add request ID if available
+  if (res.locals.requestId) {
+    errorResponse.error.requestId = res.locals.requestId;
   }
-  
-  const hasLetter = /[a-zA-Z]/.test(password);
-  const hasNumber = /\d/.test(password);
-  
-  if (!hasLetter || !hasNumber) {
-    throw new ValidationError('Password must contain at least one letter and one number', 'password');
-  }
-  
-  return true;
+
+  res.status(statusCode).json(errorResponse);
 };
 
 module.exports = {
-  // Error Classes
   AppError,
   ValidationError,
   AuthenticationError,
@@ -233,18 +206,9 @@ module.exports = {
   NotFoundError,
   ConflictError,
   DatabaseError,
-  
-  // Middleware
-  globalErrorHandler,
   asyncHandler,
-  
-  // Utilities
   handleDatabaseError,
-  dbOperation,
-  formatErrorResponse,
-  
-  // Validation
-  validateRequired,
-  validateEmail,
-  validatePassword
+  sendErrorResponse,
+  sendSuccessResponse,
+  globalErrorHandler
 };

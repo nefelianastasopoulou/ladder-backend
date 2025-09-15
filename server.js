@@ -16,48 +16,25 @@ require('dotenv').config({
 
 // Import new utilities
 const logger = require('./utils/logger');
-const { sendSuccessResponse, sendErrorResponse } = require('./utils/response');
-const { globalErrorHandler, asyncHandler } = require('./middleware/errorHandler');
+const { 
+  sendSuccessResponse, 
+  sendErrorResponse, 
+  globalErrorHandler, 
+  asyncHandler,
+  handleDatabaseError,
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  DatabaseError
+} = require('./middleware/errorHandler');
 const { sanitize, validateContentLength } = require('./middleware/validation');
 
 const db = require('./database');
 
 // ==================== ERROR HANDLING SYSTEM ====================
-
-// Custom Error Classes
-class AppError extends Error {
-  constructor(message, statusCode) {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = true;
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
-
-// Response helpers imported from utils/response.js
-
-// Database Error Handler
-const handleDatabaseError = (err, res, operation = 'database operation') => {
-  logger.error(`Database error during ${operation}:`, { 
-    error: err.message, 
-    operation, 
-    stack: err.stack 
-  });
-  
-  if (err.code === '23505') { // Unique constraint violation
-    return sendErrorResponse(res, 409, 'Resource already exists');
-  } else if (err.code === '23503') { // Foreign key constraint violation
-    return sendErrorResponse(res, 400, 'Referenced resource does not exist');
-  } else if (err.code === '23502') { // Not null constraint violation
-    return sendErrorResponse(res, 400, 'Required field is missing');
-  } else {
-    return sendErrorResponse(res, 500, 'Database operation failed');
-  }
-};
-
-// Async error wrapper imported from middleware/errorHandler.js
-
-// Global error handler imported from middleware/errorHandler.js
+// All error handling utilities are now imported from middleware/errorHandler.js
 
 // Validation Helper
 const validateRequired = (fields, data) => {
@@ -87,11 +64,13 @@ const isValidUsername = (username) => {
 
 // Password strength validation
 const isValidPassword = (password) => {
-  // At least 6 characters, contains at least one letter and one number
-  if (password.length < 6) return false;
-  const hasLetter = /[a-zA-Z]/.test(password);
+  // At least 8 characters, contains uppercase, lowercase, number, and special character
+  if (password.length < 8) return false;
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /\d/.test(password);
-  return hasLetter && hasNumber;
+  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  return hasUppercase && hasLowercase && hasNumber && hasSpecialChar;
 };
 
 // Sanitize input to prevent XSS
@@ -106,7 +85,7 @@ const sanitizeInput = (input) => {
 const validateUserInput = (req, res, next) => {
   const errors = [];
   
-  // Sanitize all string inputs
+  // Sanitize all string inputs for display purposes only
   for (const key in req.body) {
     if (typeof req.body[key] === 'string') {
       req.body[key] = sanitizeInput(req.body[key]);
@@ -125,7 +104,7 @@ const validateUserInput = (req, res, next) => {
   
   // Validate password if present
   if (req.body.password && !isValidPassword(req.body.password)) {
-    errors.push('Password must be at least 6 characters with at least one letter and one number');
+    errors.push('Password must be at least 8 characters with uppercase, lowercase, number, and special character');
   }
   
   if (errors.length > 0) {
@@ -135,7 +114,7 @@ const validateUserInput = (req, res, next) => {
   next();
 };
 
-// File upload validation
+// Enhanced file upload validation with content checking
 const validateFileUpload = (req, res, next) => {
   if (!req.file) return next();
   
@@ -144,56 +123,193 @@ const validateFileUpload = (req, res, next) => {
     return sendErrorResponse(res, 400, 'File too large. Maximum size is 5MB.');
   }
   
-  // Check file type
+  // Check file type by MIME type
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowedTypes.includes(req.file.mimetype)) {
     return sendErrorResponse(res, 400, 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.');
   }
   
+  // Validate file extension matches MIME type
+  const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+  const fileExtension = path.extname(req.file.originalname).toLowerCase();
+  if (!allowedExtensions.includes(fileExtension)) {
+    return sendErrorResponse(res, 400, 'Invalid file extension.');
+  }
+  
+  // Check file content by reading magic bytes
+  try {
+    const fs = require('fs');
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const isValidImage = validateImageContent(fileBuffer, req.file.mimetype);
+    
+    if (!isValidImage) {
+      // Delete the uploaded file
+      fs.unlinkSync(req.file.path);
+      return sendErrorResponse(res, 400, 'Invalid file content. File does not match its declared type.');
+    }
+  } catch (error) {
+    logger.error('Error validating file content:', error);
+    return sendErrorResponse(res, 400, 'Error validating file content.');
+  }
+  
   next();
 };
 
-// SQL injection prevention helper
-const escapeSQL = (input) => {
+// Validate image content by checking magic bytes
+const validateImageContent = (buffer, mimeType) => {
+  if (buffer.length < 4) return false;
+  
+  // Check magic bytes for different image types
+  const magicBytes = {
+    'image/jpeg': [0xFF, 0xD8, 0xFF],
+    'image/png': [0x89, 0x50, 0x4E, 0x47],
+    'image/gif': [0x47, 0x49, 0x46],
+    'image/webp': [0x52, 0x49, 0x46, 0x46] // RIFF header for WebP
+  };
+  
+  const expectedBytes = magicBytes[mimeType];
+  if (!expectedBytes) return false;
+  
+  // Check if the file starts with the expected magic bytes
+  for (let i = 0; i < expectedBytes.length; i++) {
+    if (buffer[i] !== expectedBytes[i]) {
+      return false;
+    }
+  }
+  
+  // Additional validation for WebP (check for WEBP in bytes 8-11)
+  if (mimeType === 'image/webp' && buffer.length >= 12) {
+    const webpSignature = String.fromCharCode(buffer[8], buffer[9], buffer[10], buffer[11]);
+    if (webpSignature !== 'WEBP') {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+// Enhanced input sanitization for display purposes only
+const sanitizeSQLInput = (input) => {
   if (typeof input !== 'string') return input;
-  return input.replace(/'/g, "''"); // Escape single quotes
+  
+  // Remove null bytes and control characters for display
+  return input
+    .replace(/\0/g, '') // Remove null bytes
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .trim();
 };
 
 // Content length validation imported from middleware/validation.js
 
 // ==================== ENVIRONMENT VALIDATION ====================
 
-// Validate required environment variables
-const requiredEnvVars = {
-  JWT_SECRET: process.env.JWT_SECRET,
-  DATABASE_URL: process.env.DATABASE_URL,
-  EMAIL_USER: process.env.EMAIL_USER,
-  EMAIL_PASS: process.env.EMAIL_PASS,
-  ADMIN_EMAIL: process.env.ADMIN_EMAIL,
-  ADMIN_USERNAME: process.env.ADMIN_USERNAME,
-  ADMIN_PASSWORD: process.env.ADMIN_PASSWORD
+// Comprehensive environment variable validation
+const validateEnvironmentVariables = () => {
+  const requiredEnvVars = {
+    JWT_SECRET: process.env.JWT_SECRET,
+    DATABASE_URL: process.env.DATABASE_URL,
+    EMAIL_USER: process.env.EMAIL_USER,
+    EMAIL_PASS: process.env.EMAIL_PASS,
+    ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+    ADMIN_USERNAME: process.env.ADMIN_USERNAME,
+    ADMIN_PASSWORD: process.env.ADMIN_PASSWORD
+  };
+
+  const optionalEnvVars = {
+    NODE_ENV: process.env.NODE_ENV || 'development',
+    PORT: process.env.PORT || '3001',
+    LOG_LEVEL: process.env.LOG_LEVEL || 'info',
+    DB_POOL_MAX: process.env.DB_POOL_MAX || '20',
+    DB_POOL_MIN: process.env.DB_POOL_MIN || '2',
+    DB_IDLE_TIMEOUT: process.env.DB_IDLE_TIMEOUT || '30000',
+    DB_CONNECTION_TIMEOUT: process.env.DB_CONNECTION_TIMEOUT || '2000',
+    DB_MAX_USES: process.env.DB_MAX_USES || '7500',
+    SLOW_QUERY_THRESHOLD: process.env.SLOW_QUERY_THRESHOLD || '1000',
+    RATE_LIMIT_WINDOW_MS: process.env.RATE_LIMIT_WINDOW_MS || '900000',
+    RATE_LIMIT_MAX_REQUESTS: process.env.RATE_LIMIT_MAX_REQUESTS || '200',
+    ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS,
+    DATABASE_SSL: process.env.DATABASE_SSL,
+    DATABASE_SSL_REJECT_UNAUTHORIZED: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED,
+    TRUST_PROXY: process.env.TRUST_PROXY
+  };
+
+  // Check for missing required variables
+  const missingEnvVars = Object.entries(requiredEnvVars)
+    .filter(([key, value]) => !value)
+    .map(([key]) => key);
+
+  if (missingEnvVars.length > 0) {
+    logger.error('Missing required environment variables', { 
+      missingVars: missingEnvVars,
+      message: 'Please check your .env file and ensure all required variables are set.'
+    });
+    process.exit(1);
+  }
+
+  // Validate specific environment variables
+  const validationErrors = [];
+
+  // Validate JWT_SECRET strength
+  if (process.env.JWT_SECRET.length < 32) {
+    validationErrors.push(`JWT_SECRET must be at least 32 characters long (current: ${process.env.JWT_SECRET.length})`);
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(process.env.ADMIN_EMAIL)) {
+    validationErrors.push('ADMIN_EMAIL must be a valid email address');
+  }
+
+  // Validate port number
+  const port = parseInt(process.env.PORT || '3001');
+  if (isNaN(port) || port < 1 || port > 65535) {
+    validationErrors.push('PORT must be a valid port number (1-65535)');
+  }
+
+  // Validate numeric environment variables
+  const numericVars = ['DB_POOL_MAX', 'DB_POOL_MIN', 'DB_IDLE_TIMEOUT', 'DB_CONNECTION_TIMEOUT', 'DB_MAX_USES', 'SLOW_QUERY_THRESHOLD'];
+  numericVars.forEach(varName => {
+    const value = parseInt(process.env[varName] || '0');
+    if (isNaN(value) || value < 0) {
+      validationErrors.push(`${varName} must be a positive number`);
+    }
+  });
+
+  // Validate LOG_LEVEL
+  const validLogLevels = ['error', 'warn', 'info', 'debug'];
+  if (!validLogLevels.includes(process.env.LOG_LEVEL || 'info')) {
+    validationErrors.push(`LOG_LEVEL must be one of: ${validLogLevels.join(', ')}`);
+  }
+
+  // Validate NODE_ENV
+  const validEnvironments = ['development', 'production', 'test'];
+  if (!validEnvironments.includes(process.env.NODE_ENV || 'development')) {
+    validationErrors.push(`NODE_ENV must be one of: ${validEnvironments.join(', ')}`);
+  }
+
+  if (validationErrors.length > 0) {
+    logger.error('Environment variable validation failed', { 
+      errors: validationErrors,
+      message: 'Please fix the environment variable issues before starting the server.'
+    });
+    process.exit(1);
+  }
+
+  // Log successful validation
+  logger.info('Environment variables validated successfully', {
+    nodeEnv: process.env.NODE_ENV,
+    port: process.env.PORT,
+    logLevel: process.env.LOG_LEVEL,
+    databaseConfigured: !!process.env.DATABASE_URL,
+    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+    adminConfigured: !!(process.env.ADMIN_EMAIL && process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD)
+  });
 };
 
-const missingEnvVars = Object.entries(requiredEnvVars)
-  .filter(([key, value]) => !value)
-  .map(([key]) => key);
+// Run environment validation
+validateEnvironmentVariables();
 
-if (missingEnvVars.length > 0) {
-  logger.error('Missing required environment variables', { 
-    missingVars: missingEnvVars,
-    message: 'Please check your .env file and ensure all required variables are set.'
-  });
-  process.exit(1);
-}
-
-// Validate JWT_SECRET strength
-if (process.env.JWT_SECRET.length < 32) {
-  logger.error('JWT_SECRET validation failed', {
-    message: 'JWT_SECRET must be at least 32 characters long for security!',
-    currentLength: process.env.JWT_SECRET.length
-  });
-  process.exit(1);
-}
+// JWT_SECRET validation is now handled in validateEnvironmentVariables()
 
 // Environment configuration
 const NODE_ENV = process.env.NODE_ENV || 'development';
@@ -218,7 +334,7 @@ const app = express();
 // Environment-based rate limiting configuration
 const rateLimitConfig = {
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || (15 * 60 * 1000), // 15 minutes default
-  maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || (NODE_ENV === 'production' ? 100 : 1000)
+  maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || (NODE_ENV === 'production' ? 100 : 500)
 };
 
 logger.info(`Rate limiting: ${rateLimitConfig.maxRequests} requests per ${rateLimitConfig.windowMs / 1000 / 60} minutes`);
@@ -237,12 +353,30 @@ const generalLimiter = rateLimit({
   },
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+  skipSuccessfulRequests: true, // Don't count successful requests
+});
+
+// Lenient rate limiting for read-only operations
+const readOnlyLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000, // 5 minutes
+  max: 200, // More lenient for read operations
+  message: {
+    success: false,
+    error: {
+      message: 'Too many read requests, please slow down.',
+      status: 429,
+      timestamp: new Date().toISOString()
+    }
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
 });
 
 // Strict rate limiting for authentication endpoints
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // Limit each IP to 5 login attempts per windowMs
+  max: 5, // Limit each IP to 5 login attempts per windowMs (reasonable for legitimate users)
   message: {
     success: false,
     error: {
@@ -254,12 +388,13 @@ const authLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   skipSuccessfulRequests: true, // Don't count successful requests
+  skipFailedRequests: false, // Count failed requests
 });
 
-// Strict rate limiting for signup endpoint
+// Rate limiting for signup endpoint
 const signupLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 hour
-  max: 3, // Limit each IP to 3 signup attempts per hour
+  max: 3, // Limit each IP to 3 signup attempts per hour (reasonable for legitimate users)
   message: {
     success: false,
     error: {
@@ -270,12 +405,13 @@ const signupLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: false, // Count all attempts
 });
 
 // Rate limiting for file uploads
 const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 file uploads per windowMs
+  max: 10, // Limit each IP to 10 file uploads per 15 minutes (reasonable for content creation)
   message: {
     success: false,
     error: {
@@ -286,6 +422,7 @@ const uploadLimiter = rateLimit({
   },
   standardHeaders: true,
   legacyHeaders: false,
+  skipSuccessfulRequests: false, // Count all uploads
 });
 
 // ==================== CORS CONFIGURATION ====================
@@ -423,6 +560,9 @@ const upload = multer({
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB limit
     files: 1, // Only allow 1 file per request
+    fieldSize: 1024 * 1024, // 1MB limit for field values
+    fieldNameSize: 100, // Limit field name size
+    fields: 10, // Limit number of fields
   },
   fileFilter: (req, file, cb) => {
     // Only allow specific image types
@@ -436,6 +576,11 @@ const upload = multer({
     
     // Check MIME type
     if (!allowedMimeTypes.includes(file.mimetype)) {
+      logger.warn('File upload rejected - invalid MIME type', {
+        mimeType: file.mimetype,
+        originalName: file.originalname,
+        ip: req.ip
+      });
       return cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed!'), false);
     }
     
@@ -444,7 +589,22 @@ const upload = multer({
     const fileExtension = path.extname(file.originalname).toLowerCase();
     
     if (!allowedExtensions.includes(fileExtension)) {
+      logger.warn('File upload rejected - invalid extension', {
+        extension: fileExtension,
+        originalName: file.originalname,
+        ip: req.ip
+      });
       return cb(new Error('Invalid file extension!'), false);
+    }
+    
+    // Check filename for suspicious patterns
+    const suspiciousPatterns = /[<>:"/\\|?*\x00-\x1f]/;
+    if (suspiciousPatterns.test(file.originalname)) {
+      logger.warn('File upload rejected - suspicious filename', {
+        originalName: file.originalname,
+        ip: req.ip
+      });
+      return cb(new Error('Invalid filename!'), false);
     }
     
     cb(null, true);
@@ -514,7 +674,7 @@ const validateImageFile = async (req, res, next) => {
       try {
         fs.unlinkSync(req.file.path);
       } catch (unlinkError) {
-        console.error('Error deleting invalid file:', unlinkError);
+        logger.error('Error deleting invalid file:', unlinkError);
       }
     }
     return res.status(400).json({ error: 'Invalid file format!' });
@@ -559,31 +719,8 @@ const initializeDatabase = async () => {
 // Run the database migrations
 initializeDatabase();
 
-// Middleware to verify JWT token
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
-    }
-    req.user = user;
-    next();
-  });
-};
-
-// Middleware to require admin access
-const requireAdmin = (req, res, next) => {
-  if (!req.user.is_admin) {
-    return res.status(403).json({ error: 'Admin access required' });
-  }
-  next();
-};
+// Import authentication middleware from centralized module
+const { authenticateToken, requireAdmin } = require('./middleware/auth');
 
 // Health check endpoint
 app.get('/', (req, res) => {
@@ -702,7 +839,7 @@ app.get('/api/users', authenticateToken, requireAdmin, (req, res) => {
 });
 
 // Search users endpoint
-app.get('/api/search/users', authenticateToken, (req, res) => {
+app.get('/api/search/users', authenticateToken, readOnlyLimiter, (req, res) => {
   const { q } = req.query;
   
   if (!q || q.trim() === '') {
@@ -714,11 +851,11 @@ app.get('/api/search/users', authenticateToken, (req, res) => {
   db.query(
     `SELECT id, email, full_name, username, is_admin, created_at 
      FROM users 
-     WHERE full_name LIKE $1 OR username LIKE $2
+     WHERE full_name ILIKE $1 OR username ILIKE $2
      ORDER BY 
        CASE 
-         WHEN full_name LIKE $3 THEN 1
-         WHEN username LIKE $4 THEN 2
+         WHEN full_name ILIKE $3 THEN 1
+         WHEN username ILIKE $4 THEN 2
          ELSE 3
        END,
        created_at DESC
@@ -734,7 +871,7 @@ app.get('/api/search/users', authenticateToken, (req, res) => {
 });
 
 // Search posts endpoint
-app.get('/api/search/posts', authenticateToken, (req, res) => {
+app.get('/api/search/posts', authenticateToken, readOnlyLimiter, (req, res) => {
   const { q } = req.query;
   
   if (!q || q.trim() === '') {
@@ -750,11 +887,11 @@ app.get('/api/search/posts', authenticateToken, (req, res) => {
      FROM posts p
      LEFT JOIN users u ON p.author_id = u.id
      LEFT JOIN communities c ON p.community_id = c.id
-     WHERE p.is_published = 1 AND (p.title LIKE $1 OR p.content LIKE $2)
+     WHERE p.is_published = true AND (p.title ILIKE $1 OR p.content ILIKE $2)
      ORDER BY 
        CASE 
-         WHEN p.title LIKE $3 THEN 1
-         WHEN p.content LIKE $4 THEN 2
+         WHEN p.title ILIKE $3 THEN 1
+         WHEN p.content ILIKE $4 THEN 2
          ELSE 3
        END,
        p.created_at DESC
@@ -770,7 +907,7 @@ app.get('/api/search/posts', authenticateToken, (req, res) => {
 });
 
 // Search communities endpoint
-app.get('/api/search/communities', authenticateToken, (req, res) => {
+app.get('/api/search/communities', authenticateToken, readOnlyLimiter, (req, res) => {
   const { q } = req.query;
   
   if (!q || q.trim() === '') {
@@ -784,11 +921,11 @@ app.get('/api/search/communities', authenticateToken, (req, res) => {
             u.full_name as creator_name, u.username as creator_username
      FROM communities c
      LEFT JOIN users u ON c.created_by = u.id
-     WHERE c.is_public = 1 AND (c.name LIKE $1 OR c.description LIKE $2)
+     WHERE c.is_public = true AND (c.name ILIKE $1 OR c.description ILIKE $2)
      ORDER BY 
        CASE 
-         WHEN c.name LIKE $3 THEN 1
-         WHEN c.description LIKE $4 THEN 2
+         WHEN c.name ILIKE $3 THEN 1
+         WHEN c.description ILIKE $4 THEN 2
          ELSE 3
        END,
        c.member_count DESC, c.created_at DESC
@@ -804,7 +941,7 @@ app.get('/api/search/communities', authenticateToken, (req, res) => {
 });
 
 // Combined search endpoint
-app.get('/api/search/all', authenticateToken, (req, res) => {
+app.get('/api/search/all', authenticateToken, readOnlyLimiter, (req, res) => {
   const { q } = req.query;
   
   if (!q || q.trim() === '') {
@@ -1112,7 +1249,7 @@ app.put('/api/profile', authenticateToken, (req, res) => {
           [req.user.id, bio || '', location || '', field || '', avatar_url || ''],
           (err) => {
             if (err) {
-              console.error('Error inserting profile:', err);
+              logger.error('Error inserting profile:', err);
             }
             
             // Update existing profile
@@ -1126,7 +1263,7 @@ app.put('/api/profile', authenticateToken, (req, res) => {
               [bio, location, field, avatar_url, req.user.id],
               (err) => {
                 if (err) {
-                  console.error('Error updating profile:', err);
+                  logger.error('Error updating profile:', err);
                 }
                 res.json({ message: 'Profile updated successfully' });
               }
@@ -1181,7 +1318,7 @@ app.post('/api/onboarding', authenticateToken, (req, res) => {
     ],
     function(err, result) {
       if (err) {
-        console.error('Error saving onboarding data:', err);
+        logger.error('Error saving onboarding data:', err);
         return res.status(500).json({ error: 'Failed to save onboarding data' });
       }
       
@@ -1421,7 +1558,7 @@ app.post('/api/communities/:id/posts', authenticateToken, uploadLimiter, checkPh
         [title, content, userId, communityId, imageUrl],
         function(err, result) {
           if (err) {
-            console.error('Error creating post:', err);
+            logger.error('Error creating post:', err);
             return res.status(500).json({ error: 'Database error' });
           }
           
@@ -1431,7 +1568,7 @@ app.post('/api/communities/:id/posts', authenticateToken, uploadLimiter, checkPh
             [communityId],
             (err) => {
               if (err) {
-                console.error('Error updating community post count:', err);
+                logger.error('Error updating community post count:', err);
               }
             }
           );
@@ -1479,7 +1616,7 @@ app.post('/api/posts', authenticateToken, uploadLimiter, checkPhotoUploadRestric
     [title, content, userId, imageUrl],
     function(err, result) {
       if (err) {
-        console.error('Error creating platform post:', err);
+        logger.error('Error creating platform post:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -1594,7 +1731,7 @@ app.post('/api/communities', authenticateToken, (req, res) => {
           [req.user.id, communityId, 'admin'],
           (err) => {
             if (err) {
-              console.error('Error adding creator as member:', err);
+              logger.error('Error adding creator as member:', err);
             }
           }
         );
@@ -1654,7 +1791,7 @@ app.post('/api/communities/:id/join', authenticateToken, (req, res) => {
             [communityId],
             (err) => {
               if (err) {
-                console.error('Error updating member count:', err);
+                logger.error('Error updating member count:', err);
               }
             }
           );
@@ -1702,7 +1839,7 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
           [communityId],
           (err) => {
             if (err) {
-              console.error('Error updating member count:', err);
+              logger.error('Error updating member count:', err);
             }
           }
         );
@@ -1721,40 +1858,45 @@ app.post('/api/communities/:id/leave', authenticateToken, (req, res) => {
 app.get('/api/conversations', authenticateToken, (req, res) => {
   const userId = req.user.id;
   
-  // Optimized conversation query with better performance
+  // Optimized conversation query with better performance and proper indexing
   const query = `
-    WITH conversation_data AS (
-      SELECT DISTINCT c.*, 
+    WITH user_conversations AS (
+      SELECT DISTINCT c.id as conversation_id
+      FROM conversations c
+      INNER JOIN conversation_participants cp ON c.id = cp.conversation_id
+      WHERE cp.user_id = $1
+    ),
+    conversation_data AS (
+      SELECT c.*, 
              u.full_name as other_user_name,
              u.username as other_user_username,
              p.avatar_url as other_user_avatar
       FROM conversations c
-      JOIN conversation_participants cp1 ON c.id = cp1.conversation_id
-      JOIN conversation_participants cp2 ON c.id = cp2.conversation_id
-      JOIN users u ON cp2.user_id = u.id
-      LEFT JOIN profiles p ON u.id = p.user_id
-      WHERE cp1.user_id = $1 
-      AND cp2.user_id != $2
+      INNER JOIN conversation_participants cp1 ON c.id = cp1.conversation_id AND cp1.user_id = $1
+      INNER JOIN conversation_participants cp2 ON c.id = cp2.conversation_id AND cp2.user_id != $1
+      INNER JOIN users u ON cp2.user_id = u.id
+      LEFT JOIN user_profiles p ON u.id = p.user_id
+      WHERE c.id IN (SELECT conversation_id FROM user_conversations)
     ),
     latest_messages AS (
       SELECT 
-        conversation_id,
-        content as last_message,
-        created_at as last_message_time,
-        sender_id as last_message_sender_id,
-        ROW_NUMBER() OVER (PARTITION BY conversation_id ORDER BY created_at DESC) as rn
-      FROM messages
-      WHERE conversation_id IN (SELECT id FROM conversation_data)
+        m.conversation_id,
+        m.content as last_message,
+        m.created_at as last_message_time,
+        m.sender_id as last_message_sender_id,
+        ROW_NUMBER() OVER (PARTITION BY m.conversation_id ORDER BY m.created_at DESC) as rn
+      FROM messages m
+      INNER JOIN user_conversations uc ON m.conversation_id = uc.conversation_id
     ),
     unread_counts AS (
       SELECT 
-        conversation_id,
+        m.conversation_id,
         COUNT(*) as unread_count
-      FROM messages
-      WHERE conversation_id IN (SELECT id FROM conversation_data)
-      AND is_read = 0 
-      AND sender_id != $1
-      GROUP BY conversation_id
+      FROM messages m
+      INNER JOIN user_conversations uc ON m.conversation_id = uc.conversation_id
+      WHERE m.is_read = false 
+      AND m.sender_id != $1
+      GROUP BY m.conversation_id
     )
     SELECT 
       cd.*,
@@ -1770,7 +1912,7 @@ app.get('/api/conversations', authenticateToken, (req, res) => {
   
   db.query(query, [userId, userId, userId], (err, rows) => {
     if (err) {
-      console.error('Error fetching conversations:', err);
+      logger.error('Error fetching conversations:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -1817,7 +1959,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
   
   db.query(checkQuery, [userId, other_user_id], (err, existing) => {
     if (err) {
-      console.error('Error checking existing conversation:', err);
+      logger.error('Error checking existing conversation:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -1834,7 +1976,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
       ['individual', userId],
       function(err, result) {
         if (err) {
-          console.error('Error creating conversation:', err);
+          logger.error('Error creating conversation:', err);
           return res.status(500).json({ error: 'Database error' });
         }
         
@@ -1846,7 +1988,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
           [conversationId, userId],
           (err) => {
             if (err) {
-              console.error('Error adding participant 1:', err);
+              logger.error('Error adding participant 1:', err);
               return res.status(500).json({ error: 'Database error' });
             }
           }
@@ -1857,7 +1999,7 @@ app.post('/api/conversations/individual', authenticateToken, (req, res) => {
           [conversationId, other_user_id],
           (err) => {
             if (err) {
-              console.error('Error adding participant 2:', err);
+              logger.error('Error adding participant 2:', err);
               return res.status(500).json({ error: 'Database error' });
             }
             
@@ -1883,7 +2025,7 @@ app.get('/api/conversations/:id/messages', authenticateToken, (req, res) => {
     [conversationId, userId],
     (err, participant) => {
       if (err) {
-        console.error('Error checking participant:', err);
+        logger.error('Error checking participant:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -1902,7 +2044,7 @@ app.get('/api/conversations/:id/messages', authenticateToken, (req, res) => {
       
       db.query(query, [conversationId], (err, messages) => {
         if (err) {
-          console.error('Error fetching messages:', err);
+          logger.error('Error fetching messages:', err);
           return res.status(500).json({ error: 'Database error' });
         }
         
@@ -1912,7 +2054,7 @@ app.get('/api/conversations/:id/messages', authenticateToken, (req, res) => {
           [conversationId, userId],
           (err) => {
             if (err) {
-              console.error('Error marking messages as read:', err);
+              logger.error('Error marking messages as read:', err);
             }
           }
         );
@@ -1939,7 +2081,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
     [conversationId, userId],
     (err, participant) => {
       if (err) {
-        console.error('Error checking participant:', err);
+        logger.error('Error checking participant:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -1953,7 +2095,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
         [conversationId, userId, content.trim(), message_type],
         function(err, result) {
           if (err) {
-            console.error('Error sending message:', err);
+            logger.error('Error sending message:', err);
             return res.status(500).json({ error: 'Database error' });
           }
           
@@ -1963,7 +2105,7 @@ app.post('/api/conversations/:id/messages', authenticateToken, (req, res) => {
             [conversationId],
             (err) => {
               if (err) {
-                console.error('Error updating conversation timestamp:', err);
+                logger.error('Error updating conversation timestamp:', err);
               }
             }
           );
@@ -1988,7 +2130,7 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2010,7 +2152,7 @@ app.delete('/api/admin/communities/:id', authenticateToken, (req, res) => {
       // Delete the community
       db.query('DELETE FROM communities WHERE id = $1', [communityId], function(err, result) {
         if (err) {
-          console.error('Error deleting community:', err);
+          logger.error('Error deleting community:', err);
           return res.status(500).json({ error: 'Database error' });
         }
         
@@ -2031,7 +2173,7 @@ app.delete('/api/admin/posts/:id', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2042,7 +2184,7 @@ app.delete('/api/admin/posts/:id', authenticateToken, (req, res) => {
     // Delete the post
     db.query('DELETE FROM posts WHERE id = $1', [postId], function(err, result) {
       if (err) {
-        console.error('Error deleting post:', err);
+        logger.error('Error deleting post:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -2068,7 +2210,7 @@ app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [adminId], (err, admin) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2110,7 +2252,7 @@ app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
       // Delete the user
       db.query('DELETE FROM users WHERE id = $1', [userId], function(err, result) {
         if (err) {
-          console.error('Error deleting user:', err);
+          logger.error('Error deleting user:', err);
           return res.status(500).json({ error: 'Database error' });
         }
         
@@ -2217,7 +2359,7 @@ app.get('/api/admin/communities', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2234,7 +2376,7 @@ app.get('/api/admin/communities', authenticateToken, (req, res) => {
     
     db.query(query, (err, communities) => {
       if (err) {
-        console.error('Error fetching communities:', err);
+        logger.error('Error fetching communities:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -2250,7 +2392,7 @@ app.get('/api/admin/posts', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2269,7 +2411,7 @@ app.get('/api/admin/posts', authenticateToken, (req, res) => {
     
     db.query(query, (err, posts) => {
       if (err) {
-        console.error('Error fetching posts:', err);
+        logger.error('Error fetching posts:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -2285,7 +2427,7 @@ app.get('/api/admin/users', authenticateToken, (req, res) => {
   // Check if user is admin
   db.query('SELECT is_admin FROM users WHERE id = $1', [userId], (err, user) => {
     if (err) {
-      console.error('Error checking admin status:', err);
+      logger.error('Error checking admin status:', err);
       return res.status(500).json({ error: 'Database error' });
     }
     
@@ -2302,7 +2444,7 @@ app.get('/api/admin/users', authenticateToken, (req, res) => {
     
     db.query(query, (err, users) => {
       if (err) {
-        console.error('Error fetching users:', err);
+        logger.error('Error fetching users:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -2329,7 +2471,7 @@ app.post('/admin/setup', rateLimit({
     // Delete all existing users
     db.query('DELETE FROM users', [], (err) => {
       if (err) {
-        console.error('Error deleting users:', err);
+        logger.error('Error deleting users:', err);
         return res.status(500).json({ error: 'Database error' });
       }
       
@@ -2344,7 +2486,7 @@ app.post('/admin/setup', rateLimit({
       
       bcrypt.hash(adminPassword, 10, (err, hashedPassword) => {
         if (err) {
-          console.error('Error hashing password:', err);
+          logger.error('Error hashing password:', err);
           return res.status(500).json({ error: 'Server error' });
         }
         
@@ -2353,7 +2495,7 @@ app.post('/admin/setup', rateLimit({
           [adminEmail, hashedPassword, 'Admin User', adminUsername, 1],
           function(err, result) {
             if (err) {
-              console.error('Error creating admin user:', err);
+              logger.error('Error creating admin user:', err);
               return res.status(500).json({ error: 'Database error' });
             }
             res.json({ 
@@ -2369,7 +2511,7 @@ app.post('/admin/setup', rateLimit({
       });
     });
   } catch (error) {
-    console.error('Admin setup error:', error);
+    logger.error('Admin setup error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -2399,9 +2541,6 @@ const server = app.listen(PORT, '0.0.0.0', (err) => {
     logger.info('Production security features enabled');
   }
 });
-
-// Global error handler (must be last middleware)
-app.use(globalErrorHandler);
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
