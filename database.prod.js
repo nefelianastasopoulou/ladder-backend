@@ -7,7 +7,7 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-console.log('Connecting to PostgreSQL database...');
+// Connecting to PostgreSQL database
 
 // Enhanced connection pool configuration for performance
 const poolConfig = {
@@ -59,17 +59,17 @@ function getSSLConfig() {
 const pool = new Pool(poolConfig);
 
 // Log pool configuration
-console.log(`📊 Database pool configured: max=${poolConfig.max}, min=${poolConfig.min}, idleTimeout=${poolConfig.idleTimeoutMillis}ms`);
+// Database pool configured
 
 // Test the connection
 pool.on('connect', (client) => {
-  console.log('✅ Connected to PostgreSQL database');
+  // Connected to PostgreSQL database
   // Test the connection with a simple query
   client.query('SELECT NOW()', (err, result) => {
     if (err) {
       console.error('❌ Database connection test failed:', err);
     } else {
-      console.log('✅ Database connection test successful');
+      // Database connection test successful
     }
   });
 });
@@ -90,7 +90,7 @@ pool.on('error', (err, client) => {
 
 // Handle pool errors
 pool.on('remove', (client) => {
-  console.log('📤 Database client removed from pool');
+  // Database client removed from pool
 });
 
 // Database performance monitoring
@@ -123,7 +123,7 @@ const executeQuery = (query, params, callback, queryType = 'unknown') => {
     
     // Log query performance in debug mode
     if (process.env.LOG_LEVEL === 'debug' && executionTime > 100) {
-      console.log(`📊 Query ${queryType}: ${executionTime}ms`);
+      // Query executed
     }
     
     if (err) return callback(err);

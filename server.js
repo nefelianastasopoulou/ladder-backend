@@ -14,6 +14,17 @@ require('dotenv').config({
   path: path.join(__dirname, '.env') 
 });
 
+// Validate environment variables at startup
+const EnvironmentValidator = require('./config/env-validator');
+const envValidator = new EnvironmentValidator();
+const envValidation = envValidator.getValidationReport();
+
+if (!envValidation.isValid) {
+  console.error('Environment validation failed:');
+  envValidation.errors.forEach(error => console.error(`  - ${error}`));
+  process.exit(1);
+}
+
 // Import new utilities
 const logger = require('./utils/logger');
 const { 
@@ -29,7 +40,9 @@ const {
   ConflictError,
   DatabaseError
 } = require('./middleware/errorHandler');
-const { sanitize, validateContentLength } = require('./middleware/validation');
+const { sanitize, validateContentLength, validateRequest } = require('./middleware/validation');
+const apiDocumentation = require('./docs/api-docs');
+const { metricsMiddleware, errorMetricsMiddleware, metricsCollector } = require('./utils/metrics');
 
 const db = require('./database');
 
@@ -529,6 +542,7 @@ app.use((req, res, next) => {
 });
 
 // Enhanced content validation
+app.use(metricsMiddleware); // Collect request metrics
 app.use(validateContentLength());
 app.use(sanitize);
 
@@ -736,6 +750,21 @@ app.get('/health', (req, res) => {
     status: 'OK',
     message: 'Health check passed'
   });
+});
+
+// API Documentation endpoint
+app.get('/api/docs', (req, res) => {
+  res.json(apiDocumentation);
+});
+
+// Metrics endpoint (admin only)
+app.get('/api/metrics', authenticateToken, requireAdmin, (req, res) => {
+  sendSuccessResponse(res, 200, metricsCollector.getMetrics());
+});
+
+// Metrics summary endpoint
+app.get('/api/metrics/summary', authenticateToken, requireAdmin, (req, res) => {
+  sendSuccessResponse(res, 200, metricsCollector.getSummary());
 });
 
 // Enhanced health check with system information
@@ -1024,7 +1053,7 @@ app.get('/api/search/all', authenticateToken, readOnlyLimiter, (req, res) => {
 });
 
 // Signup endpoint
-app.post('/api/auth/signup', signupLimiter, asyncHandler(async (req, res) => {
+app.post('/api/auth/signup', signupLimiter, validateRequest('signup'), asyncHandler(async (req, res) => {
   const { email, password, full_name, username } = req.body;
 
   // Validate required fields
@@ -1076,7 +1105,7 @@ app.post('/api/auth/signup', signupLimiter, asyncHandler(async (req, res) => {
 }));
 
 // Login endpoint
-app.post('/api/auth/signin', authLimiter, asyncHandler(async (req, res) => {
+app.post('/api/auth/signin', authLimiter, validateRequest('login'), asyncHandler(async (req, res) => {
   const { email, username, password } = req.body;
 
   if (!password || (!email && !username)) {

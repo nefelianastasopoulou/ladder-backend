@@ -20,13 +20,13 @@ class MigrationManager {
       }
     });
     
-    console.log(`🔗 Connecting to ${isLocal ? 'local' : isRailway ? 'Railway' : 'cloud'} database`);
+    // Database connection configured
   }
 
   async connect() {
     try {
       await this.pool.query('SELECT 1');
-      console.log('✅ Database connected for migrations');
+      // Database connected successfully
     } catch (error) {
       console.error('❌ Error connecting to database:', error);
       throw error;
@@ -43,7 +43,7 @@ class MigrationManager {
           executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
-      console.log('✅ Migrations table ready');
+      // Migrations table ready
     } catch (error) {
       console.error('❌ Error creating migrations table:', error);
       throw error;
@@ -62,7 +62,7 @@ class MigrationManager {
 
   async executeMigration(version, name, sql) {
     try {
-      console.log(`🔄 Executing migration ${version}: ${name}`);
+      // Executing migration
       
       // Execute the migration SQL
       await this.pool.query(sql);
@@ -73,7 +73,7 @@ class MigrationManager {
         [version, name]
       );
       
-      console.log(`✅ Migration ${version} completed successfully`);
+      // Migration completed successfully
     } catch (error) {
       console.error(`❌ Error executing migration ${version}:`, error);
       throw error;
@@ -86,7 +86,7 @@ class MigrationManager {
       await this.createMigrationsTable();
       
       const executedMigrations = await this.getExecutedMigrations();
-      console.log('📋 Executed migrations:', executedMigrations);
+      // Migrations executed
       
       // Get all migration files
       const migrationsDir = path.join(__dirname);
@@ -94,7 +94,7 @@ class MigrationManager {
         .filter(file => file.endsWith('.sql'))
         .sort();
       
-      console.log('📁 Found migration files:', files);
+      // Migration files found
       
       for (const file of files) {
         const version = file.split('_')[0];
@@ -104,11 +104,11 @@ class MigrationManager {
           const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
           await this.executeMigration(version, name, sql);
         } else {
-          console.log(`⏭️  Migration ${version} already executed, skipping`);
+          // Migration already executed, skipping
         }
       }
       
-      console.log('🎉 All migrations completed successfully!');
+      // All migrations completed successfully
     } catch (error) {
       console.error('❌ Migration failed:', error);
       throw error;
