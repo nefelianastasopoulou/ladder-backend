@@ -7,17 +7,9 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "echo 'No build step required for Node.js'",
-    "migrate": "node run-migrations.js",
-    "backup": "node backup-database.js",
-    "test-api": "node test-api.js",
-    "test-suite": "node tests/api-test-suite.js",
-    "test-db": "node tests/db-performance-test.js",
-    "test-refactored": "node tests/refactored-server-test.js",
-    "test": "npm run test-suite",
-    "seed": "node seed-data.js",
     "validate-env": "node scripts/validate-env.js",
     "run-migration": "node scripts/run-migration.js",
-    "postinstall": "npm run validate-env && npm run migrate"
+    "postinstall": "npm run validate-env"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
