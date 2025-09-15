@@ -14,6 +14,12 @@ require('dotenv').config({
   path: path.join(__dirname, '.env') 
 });
 
+// Import new utilities
+const logger = require('./utils/logger');
+const { sendSuccessResponse, sendErrorResponse } = require('./utils/response');
+const { globalErrorHandler, asyncHandler } = require('./middleware/errorHandler');
+const { sanitize, validateContentLength } = require('./middleware/validation');
+
 const db = require('./database');
 
 // ==================== ERROR HANDLING SYSTEM ====================
@@ -28,43 +34,15 @@ class AppError extends Error {
   }
 }
 
-// Error Response Helper
-const sendErrorResponse = (res, statusCode, message, details = null) => {
-  const errorResponse = {
-    success: false,
-    error: {
-      message,
-      status: statusCode,
-      timestamp: new Date().toISOString()
-    }
-  };
-  
-  // Add details in development mode only
-  if (details && process.env.NODE_ENV === 'development') {
-    errorResponse.error.details = details;
-  }
-  
-  res.status(statusCode).json(errorResponse);
-};
-
-// Success Response Helper
-const sendSuccessResponse = (res, statusCode, data, message = null) => {
-  const response = {
-    success: true,
-    data,
-    timestamp: new Date().toISOString()
-  };
-  
-  if (message) {
-    response.message = message;
-  }
-  
-  res.status(statusCode).json(response);
-};
+// Response helpers imported from utils/response.js
 
 // Database Error Handler
 const handleDatabaseError = (err, res, operation = 'database operation') => {
-  console.error(`Database error during ${operation}:`, err);
+  logger.error(`Database error during ${operation}:`, { 
+    error: err.message, 
+    operation, 
+    stack: err.stack 
+  });
   
   if (err.code === '23505') { // Unique constraint violation
     return sendErrorResponse(res, 409, 'Resource already exists');
@@ -77,36 +55,9 @@ const handleDatabaseError = (err, res, operation = 'database operation') => {
   }
 };
 
-// Async Error Wrapper
-const asyncHandler = (fn) => {
-  return (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-  };
-};
+// Async error wrapper imported from middleware/errorHandler.js
 
-// Global Error Handler Middleware
-const globalErrorHandler = (err, req, res, next) => {
-  console.error('Global error handler:', err);
-  
-  if (err instanceof AppError) {
-    return sendErrorResponse(res, err.statusCode, err.message);
-  }
-  
-  if (err.name === 'ValidationError') {
-    return sendErrorResponse(res, 400, 'Validation failed', err.message);
-  }
-  
-  if (err.name === 'JsonWebTokenError') {
-    return sendErrorResponse(res, 401, 'Invalid token');
-  }
-  
-  if (err.name === 'TokenExpiredError') {
-    return sendErrorResponse(res, 401, 'Token expired');
-  }
-  
-  // Default error
-  sendErrorResponse(res, 500, 'Internal server error');
-};
+// Global error handler imported from middleware/errorHandler.js
 
 // Validation Helper
 const validateRequired = (fields, data) => {
@@ -208,17 +159,7 @@ const escapeSQL = (input) => {
   return input.replace(/'/g, "''"); // Escape single quotes
 };
 
-// Content length validation
-const validateContentLength = (req, res, next) => {
-  const contentLength = parseInt(req.get('Content-Length') || '0');
-  const maxLength = 10 * 1024 * 1024; // 10MB max request size
-  
-  if (contentLength > maxLength) {
-    return sendErrorResponse(res, 413, 'Request entity too large');
-  }
-  
-  next();
-};
+// Content length validation imported from middleware/validation.js
 
 // ==================== ENVIRONMENT VALIDATION ====================
 
@@ -238,14 +179,19 @@ const missingEnvVars = Object.entries(requiredEnvVars)
   .map(([key]) => key);
 
 if (missingEnvVars.length > 0) {
-  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
-  console.error('📝 Please check your .env file and ensure all required variables are set.');
+  logger.error('Missing required environment variables', { 
+    missingVars: missingEnvVars,
+    message: 'Please check your .env file and ensure all required variables are set.'
+  });
   process.exit(1);
 }
 
 // Validate JWT_SECRET strength
 if (process.env.JWT_SECRET.length < 32) {
-  console.error('❌ JWT_SECRET must be at least 32 characters long for security!');
+  logger.error('JWT_SECRET validation failed', {
+    message: 'JWT_SECRET must be at least 32 characters long for security!',
+    currentLength: process.env.JWT_SECRET.length
+  });
   process.exit(1);
 }
 
@@ -255,35 +201,15 @@ const PORT = process.env.PORT || 3001;
 const JWT_SECRET = process.env.JWT_SECRET;
 const LOG_LEVEL = process.env.LOG_LEVEL || 'info';
 
-// ==================== LOGGING CONFIGURATION ====================
-
-// Simple logging helper
-const logger = {
-  info: (message, ...args) => {
-    if (['development', 'info', 'debug'].includes(LOG_LEVEL)) {
-      console.log(`ℹ️  [${new Date().toISOString()}] INFO:`, message, ...args);
-    }
-  },
-  warn: (message, ...args) => {
-    if (['development', 'info', 'warn', 'debug'].includes(LOG_LEVEL)) {
-      console.warn(`⚠️  [${new Date().toISOString()}] WARN:`, message, ...args);
-    }
-  },
-  error: (message, ...args) => {
-    console.error(`❌ [${new Date().toISOString()}] ERROR:`, message, ...args);
-  },
-  debug: (message, ...args) => {
-    if (LOG_LEVEL === 'debug') {
-      console.log(`🐛 [${new Date().toISOString()}] DEBUG:`, message, ...args);
-    }
-  }
-};
-
+// Startup logging
 logger.info(`Starting server in ${NODE_ENV} mode on port ${PORT}`);
 logger.info(`Log level set to: ${LOG_LEVEL}`);
 if (NODE_ENV === 'development') {
   logger.debug('Development mode - additional debugging enabled');
 }
+
+// ==================== LOGGING CONFIGURATION ====================
+// Using imported structured logger from utils/logger.js
 
 const app = express();
 
@@ -451,10 +377,27 @@ app.use((req, res, next) => {
 
 // ==================== MIDDLEWARE SETUP ====================
 
+// ==================== ENHANCED MIDDLEWARE SETUP ====================
+
+// Request logging middleware
+app.use((req, res, next) => {
+  const startTime = Date.now();
+  
+  res.on('finish', () => {
+    const responseTime = Date.now() - startTime;
+    logger.request(req, res, responseTime);
+  });
+  
+  next();
+});
+
+// Enhanced content validation
+app.use(validateContentLength());
+app.use(sanitize);
+
 // Middleware
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
-app.use(validateContentLength); // Validate request size
 app.use(validateUserInput); // Validate and sanitize all user input
 
 // Apply general rate limiting to all routes
@@ -695,6 +638,39 @@ app.get('/health/detailed', async (req, res) => {
   } catch (error) {
     logger.error('Health check error:', error);
     sendErrorResponse(res, 500, 'Health check failed');
+  }
+});
+
+// Readiness check for container orchestration
+app.get('/health/ready', (req, res) => {
+  // Check if all critical systems are ready
+  // For now, just check if server is responsive
+  sendSuccessResponse(res, 200, {
+    status: 'READY',
+    message: 'Service is ready to accept requests'
+  });
+});
+
+// Liveness check for container orchestration
+app.get('/health/live', (req, res) => {
+  // Simple check - if server is running, it's alive
+  sendSuccessResponse(res, 200, {
+    status: 'ALIVE',
+    message: 'Service is alive'
+  });
+});
+
+// Database performance monitoring endpoint (admin only)
+app.get('/health/database', authenticateToken, requireAdmin, (req, res) => {
+  try {
+    const dbStats = db.getStats ? db.getStats() : { message: 'Database performance monitoring not available' };
+    sendSuccessResponse(res, 200, {
+      status: 'OK',
+      database: dbStats
+    });
+  } catch (error) {
+    logger.error('Database health check error:', error);
+    sendErrorResponse(res, 500, 'Database health check failed');
   }
 });
 
@@ -2443,6 +2419,16 @@ app.post('/admin/setup', rateLimit({
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+// ==================== ERROR HANDLING ====================
+
+// 404 handler for unknown routes
+app.use('*', (req, res) => {
+  sendErrorResponse(res, 404, `Route ${req.originalUrl} not found`);
+});
+
+// Global error handler (must be last middleware)
+app.use(globalErrorHandler);
 
 // Start server
 logger.info(`About to start server on port: ${PORT}`);
