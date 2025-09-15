@@ -2591,11 +2591,14 @@ process.on('SIGINT', () => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
-  logger.error('Uncaught Exception:', err);
-  process.exit(1);
+  console.error('Uncaught Exception:', err);
+  console.error('Stack trace:', err.stack);
+  // Don't exit immediately - let Railway handle the restart
+  setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-  process.exit(1);
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit immediately - let Railway handle the restart
+  setTimeout(() => process.exit(1), 1000);
 });
