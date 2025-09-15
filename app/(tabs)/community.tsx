@@ -2,7 +2,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/Colors';
 import { useColorScheme } from '../../hooks/useColorScheme';
@@ -44,7 +44,10 @@ export default function CommunityScreen() {
         setSearchResults(results);
         setFilteredPosts([]); // Clear posts when searching
       } catch (error) {
-        console.error('Search error:', error);
+        // Log error for debugging (remove in production)
+        if (__DEV__) {
+          console.error('Search error:', error);
+        }
         setSearchResults({ users: [], posts: [], communities: [] });
       } finally {
         setIsSearching(false);
@@ -157,7 +160,10 @@ export default function CommunityScreen() {
         activeOpacity={0.9}
         onPress={() => {
           // Navigate to community page (you might want to create this)
-          console.log('Navigate to community:', item.id);
+          // Log navigation for debugging (remove in production)
+          if (__DEV__) {
+            console.log('Navigate to community:', item.id);
+          }
         }}
       >
         <View style={styles.communityHeader}>

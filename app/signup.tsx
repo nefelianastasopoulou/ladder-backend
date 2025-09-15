@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, Image, Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
@@ -34,23 +34,36 @@ export default function SignUpScreen() {
     // Validate username format
     const usernameRegex = /^[a-zA-Z0-9_]+$/;
     if (!usernameRegex.test(username)) {
-      Alert.alert(t('error'), t('usernameRequired'));
+      Alert.alert(t('error'), 'Username must contain only letters, numbers, and underscores');
       return;
     }
 
     // Check username length
     if (username.length < 3 || username.length > 20) {
-      Alert.alert(t('error'), t('usernameRequired'));
+      Alert.alert(t('error'), 'Username must be between 3 and 20 characters');
       return;
     }
 
-    if (!email.includes('@')) {
-      Alert.alert(t('error'), t('invalidEmail'));
+    // Enhanced email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert(t('error'), 'Please enter a valid email address');
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert(t('error'), t('passwordTooShort'));
+    if (password.length < 8) {
+      Alert.alert(t('error'), 'Password must be at least 8 characters long');
+      return;
+    }
+
+    // Check password strength
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+
+    if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecialChar) {
+      Alert.alert(t('error'), 'Password must contain uppercase, lowercase, number, and special character');
       return;
     }
 
@@ -81,7 +94,9 @@ export default function SignUpScreen() {
         router.replace('/onboarding');
       }, 100);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Something went wrong. Please try again.');
+      console.error('Signup error:', error);
+      const errorMessage = error?.response?.data?.error?.message || error?.message || 'Signup failed. Please try again.';
+      Alert.alert(t('error'), errorMessage);
     } finally {
       setIsLoading(false);
     }

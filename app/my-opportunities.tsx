@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -28,7 +28,10 @@ export default function MyOpportunitiesScreen() {
       const data = await opportunitiesAPI.getMyOpportunities();
       setMyOpportunities(data || []);
     } catch (error) {
-      console.error('Error fetching my opportunities:', error);
+      // Log error for debugging (remove in production)
+      if (__DEV__) {
+        console.error('Error fetching my opportunities:', error);
+      }
       setMyOpportunities([]);
     } finally {
       setLoading(false);

@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     Image,
@@ -35,7 +35,10 @@ export default function OpportunityDetailsScreen() {
       try {
         return new Date((params.postedDate as string) || Date.now());
       } catch (error) {
-        console.error('Error parsing postedDate:', error);
+        // Log error for debugging (remove in production)
+        if (__DEV__) {
+          console.error('Error parsing postedDate:', error);
+        }
         return new Date();
       }
     })(),
@@ -58,7 +61,10 @@ export default function OpportunityDetailsScreen() {
         setHasUserApplied(response.hasApplied);
         setApplication(response.application);
       } catch (error) {
-        console.error('Error checking application status:', error);
+        // Log error for debugging (remove in production)
+        if (__DEV__) {
+          console.error('Error checking application status:', error);
+        }
       } finally {
         setIsLoading(false);
       }

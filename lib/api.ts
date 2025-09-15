@@ -45,7 +45,10 @@ const MOCK_OPPORTUNITIES = [
 const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  // Log API request in development only
+  if (__DEV__) {
+    console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  }
   
   const config: RequestInit = {
     headers: {
@@ -77,9 +80,12 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     
     clearTimeout(timeoutId);
     
-    console.log(`API Response: ${response.status} ${response.statusText}`);
-    console.log(`API URL: ${url}`);
-    console.log(`API Headers:`, config.headers);
+    // Log API response in development only
+    if (__DEV__) {
+      console.log(`API Response: ${response.status} ${response.statusText}`);
+      console.log(`API URL: ${url}`);
+      console.log(`API Headers:`, config.headers);
+    }
     
     // Check if response is JSON
     const contentType = response.headers.get('content-type');
@@ -90,7 +96,10 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
     }
     
     const data = await response.json();
-    console.log(`API Data:`, data);
+    // Log API data in development only
+    if (__DEV__) {
+      console.log(`API Data:`, data);
+    }
 
     if (!response.ok) {
       // Enhanced error handling with specific error types
@@ -305,7 +314,10 @@ export const opportunitiesAPI = {
       // Ensure we always return an array
       return Array.isArray(data) ? data : [];
     } catch (error) {
-      console.log('API not available, using mock data');
+      // Log fallback to mock data in development only
+      if (__DEV__) {
+        console.log('API not available, using mock data');
+      }
       return MOCK_OPPORTUNITIES;
     }
   },

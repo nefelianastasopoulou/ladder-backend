@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
@@ -26,7 +26,7 @@ export default function LoginScreen() {
     const isUsername = /^[a-zA-Z0-9_]{3,20}$/.test(email);
     
     if (!isEmail && !isUsername) {
-      Alert.alert(t('error'), t('invalidEmail'));
+      Alert.alert(t('error'), 'Please enter a valid email address or username');
       return;
     }
 
@@ -53,7 +53,8 @@ export default function LoginScreen() {
       }, 100);
     } catch (error: any) {
       console.error('Login error:', error);
-      Alert.alert('Error', error.message || 'Something went wrong. Please try again.');
+      const errorMessage = error?.response?.data?.error?.message || error?.message || 'Login failed. Please try again.';
+      Alert.alert(t('error'), errorMessage);
     } finally {
       setIsLoading(false);
     }

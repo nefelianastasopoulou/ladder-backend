@@ -7,12 +7,20 @@
     "icon": "./assets/images/icon.png",
     "scheme": "ladder",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nefeli.ladder",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": false,
+          "NSExceptionDomains": {
+            "localhost": {
+              "NSExceptionAllowsInsecureHTTPLoads": true
+            }
+          }
+        }
       }
     },
     "android": {
@@ -21,7 +29,9 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.nefeli.ladder"
+      "package": "com.nefeli.ladder",
+      "usesCleartextTraffic": false,
+      "networkSecurityConfig": "network_security_config.xml"
     },
     "web": {
       "bundler": "metro",
