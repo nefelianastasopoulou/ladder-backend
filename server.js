@@ -716,21 +716,20 @@ app.use('/uploads', (req, res, next) => {
 
 // Database connection is now handled in database.js
 
-// Initialize database using proper migrations
-const runMigrations = require('./backend/run-migrations');
-
+// Database initialization - migrations are handled by Railway
 const initializeDatabase = async () => {
   try {
-    logger.info('Running database migrations...');
-    await runMigrations();
-    logger.info('Database initialization completed successfully!');
+    logger.info('Database connection initialized');
+    // Test database connection
+    await db.query('SELECT 1');
+    logger.info('Database connection successful');
   } catch (error) {
-    logger.error('Database initialization failed', { error: error.message, stack: error.stack });
+    logger.error('Database connection failed:', error);
     process.exit(1);
   }
 };
 
-// Run the database migrations
+// Initialize database connection
 initializeDatabase();
 
 // Import authentication middleware from centralized module
