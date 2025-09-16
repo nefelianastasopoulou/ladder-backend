@@ -11,8 +11,6 @@ import { useLanguage } from '../context/LanguageContext';
 
 // const { width } = Dimensions.get('window'); // Not currently used
 
-
-
 export default function CommunityScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
@@ -162,7 +160,6 @@ export default function CommunityScreen() {
           // Navigate to community page (you might want to create this)
           // Log navigation for debugging (remove in production)
           if (__DEV__) {
-            console.log('Navigate to community:', item.id);
           }
         }}
       >
@@ -318,8 +315,7 @@ export default function CommunityScreen() {
           )}
         </View>
       </View>
-      
-      
+
       <ScrollView style={[styles.container, { backgroundColor: 'transparent' }]} showsVerticalScrollIndicator={false}>
         {/* Search Results or Posts Section */}
         <View style={styles.section}>

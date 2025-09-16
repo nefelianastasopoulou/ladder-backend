@@ -15,8 +15,6 @@ import { useNotifications } from '../context/NotificationsContext';
 import { useRecommendations } from '../context/RecommendationsContext';
 import { useUser } from '../context/UserContext';
 
-
-
 const categories = [
   { label: 'all', icon: 'apps-outline', color: '#4f46e5' },
   { label: 'internships', icon: 'briefcase-outline', color: '#3b82f6' },
@@ -77,8 +75,6 @@ const durations = [
   { label: 'flexiblePartTime', icon: 'options-outline', color: '#8b5cf6' },
   { label: 'fullTime', icon: 'business-outline', color: '#06b6d4' },
 ] as const;
-
-
 
 export default function HomeScreen() {
   const colorScheme = useColorScheme() ?? 'light';

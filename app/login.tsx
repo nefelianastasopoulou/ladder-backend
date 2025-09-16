@@ -149,7 +149,6 @@ export default function LoginScreen() {
           )}
         </TouchableOpacity>
 
-
         <View style={styles.signUpContainer}>
           <Text style={styles.signUpText}>{t('dontHaveAccount')} </Text>
           <TouchableOpacity onPress={handleSignUp}>

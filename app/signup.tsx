@@ -268,7 +268,6 @@ export default function SignUpScreen() {
           )}
         </TouchableOpacity>
 
-
         <View style={styles.loginContainer}>
           <Text style={styles.loginText}>{t('alreadyHaveAccount')} </Text>
           <TouchableOpacity onPress={handleBackToLogin}>

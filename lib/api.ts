@@ -1,7 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logger } from './logger';
 
 // Environment-based API configuration
 const getApiBaseUrl = () => {
+  // Priority order:
+  // 1. Environment variable (for different stages)
+  // 2. Development mode fallback
+  // 3. Production fallback
+  
+  const envUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (envUrl) {
+    return envUrl;
+  }
+  
   // Check if we're in development mode
   if (__DEV__) {
     // For testing with production backend (recommended):
@@ -11,8 +22,8 @@ const getApiBaseUrl = () => {
     // return 'http://localhost:3001/api';
   }
   
-  // For production, use environment variable or fallback
-  return process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-production.up.railway.app/api';
+  // For production, use Railway URL
+  return 'https://ladder-backend-production.up.railway.app/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

@@ -8,8 +8,6 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { opportunitiesAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
 
-
-
 export default function SearchScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];

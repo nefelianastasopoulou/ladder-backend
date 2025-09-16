@@ -20,8 +20,6 @@ interface UserProfile {
   created_at: string;
 }
 
-
-
 // const numColumns = 3;
 // const size = Dimensions.get('window').width / numColumns - 16; // Not currently used
 

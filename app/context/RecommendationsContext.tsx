@@ -178,7 +178,6 @@ export const RecommendationsProvider: React.FC<RecommendationsProviderProps> = (
   const getPersonalizedOpportunities = (opportunities: any[]): any[] => {
     // Ensure opportunities is an array before calling map
     if (!Array.isArray(opportunities)) {
-      console.warn('getPersonalizedOpportunities received non-array:', opportunities);
       return [];
     }
     

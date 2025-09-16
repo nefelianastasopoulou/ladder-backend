@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { logger } from '../../lib/logger';
 
 interface User {
   id: number;
@@ -37,7 +38,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         setUserState(JSON.parse(storedUser));
       }
     } catch (error) {
-      console.error('Error loading user from storage:', error);
+      logger.error('Error loading user from storage:', error);
     } finally {
       setIsLoading(false);
     }
@@ -52,7 +53,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.removeItem('user');
       }
     } catch (error) {
-      console.error('Error saving user to storage:', error);
+      logger.error('Error saving user to storage:', error);
     }
   };
 
@@ -61,7 +62,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
       setUserState(null);
       await AsyncStorage.removeItem('user');
     } catch (error) {
-      console.error('Error clearing user from storage:', error);
+      logger.error('Error clearing user from storage:', error);
     }
   };
 

@@ -10,8 +10,6 @@ import { opportunitiesAPI } from '../lib/api';
 import { useFavorites } from './context/FavoritesContext';
 import { useLanguage } from './context/LanguageContext';
 
-
-
 const categories = [
   { label: 'all', icon: 'apps-outline', color: '#4f46e5' },
   { label: 'internships', icon: 'briefcase-outline', color: '#3b82f6' },

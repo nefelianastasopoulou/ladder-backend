@@ -9,8 +9,6 @@ import { useColorScheme } from '../hooks/useColorScheme';
 import { chatAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
 
-
-
 export default function ChatsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];

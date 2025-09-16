@@ -26,7 +26,6 @@ interface LanguageProviderProps {
 export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) => {
   const [language, setLanguageState] = useState<string>('en');
 
-
   // Smart language detection based on device locale
   const getDeviceLanguage = (): string => {
     let locale = 'en'; // Default fallback

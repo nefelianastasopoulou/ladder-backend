@@ -20,7 +20,6 @@ import { authAPI, settingsAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
-
 export default function SettingsScreen() {
   const colorScheme = useColorScheme() ?? 'light';
   const { user, setUser } = useUser();
@@ -239,7 +238,6 @@ export default function SettingsScreen() {
     );
   };
 
-
   const handleLanguage = () => {
     showSelectionModalWithOptions(
       t('language'),
@@ -265,8 +263,6 @@ export default function SettingsScreen() {
       ]
     );
   };
-
-
 
   const handleContactSupport = () => {
     setEmailCopied(false); // Reset the copied state when modal opens
@@ -295,7 +291,6 @@ export default function SettingsScreen() {
   const handlePrivacyPolicy = () => {
     router.push('/privacy-policy');
   };
-
 
   const handleExportData = async () => {
     try {
@@ -432,7 +427,6 @@ export default function SettingsScreen() {
       ]
     );
   };
-
 
   const renderMenuItem = (
     icon: string,

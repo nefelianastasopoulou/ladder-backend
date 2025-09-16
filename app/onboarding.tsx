@@ -280,9 +280,6 @@ const onboardingQuestions: OnboardingQuestion[] = [
     field: 'preferences'
   },
 
-
-
-
 ];
 
 export default function OnboardingScreen() {
@@ -615,7 +612,6 @@ export default function OnboardingScreen() {
                 )}
               </TouchableOpacity>
             ))}
-            
 
           </View>
         );
