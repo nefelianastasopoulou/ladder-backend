@@ -2,7 +2,7 @@
 nixPkgs = ["nodejs"]
 
 [phases.install]
-cmds = ["cd backend && npm install"]
+cmds = ["cd backend && npm install --omit=dev --no-package-lock"]
 
 [phases.build]
 cmds = ["echo 'No build step required for Node.js'"]
