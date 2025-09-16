@@ -59,7 +59,7 @@ export default function CommunityDetailScreen() {
           const postsData = await communitiesAPI.getCommunityPosts(parseInt(communityId as string));
           setPosts(postsData);
         } catch (error) {
-          console.error('Error loading posts:', error);
+          // Error handled by Alert or fallback
           setPosts([]);
         }
       } else {
@@ -67,7 +67,7 @@ export default function CommunityDetailScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error loading community:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to load community data');
     } finally {
       setLoading(false);

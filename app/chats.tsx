@@ -24,7 +24,7 @@ export default function ChatsScreen() {
       const data = await chatAPI.getConversations();
       setChats(data);
     } catch (error) {
-      console.error('Error loading conversations:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to load conversations. Please try again.');
     } finally {
       setLoading(false);
@@ -64,7 +64,7 @@ export default function ChatsScreen() {
         }
       });
     } catch (error: any) {
-      console.error('Error creating conversation:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', error.message || 'Failed to start conversation. Please try again.');
     }
   };

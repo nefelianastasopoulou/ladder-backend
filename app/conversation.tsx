@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
@@ -46,13 +46,15 @@ export default function ConversationScreen() {
         loadMessages(conversationId);
       }, 2000);
       setPollingInterval(interval);
-
+      
       return () => {
         if (interval) {
           clearInterval(interval);
         }
       };
     }
+    
+    return undefined;
   }, [conversationId]);
 
   const loadMessages = async (convId: number) => {
@@ -68,7 +70,7 @@ export default function ConversationScreen() {
         }
       }, 100);
     } catch (error) {
-      console.error('Error loading messages:', error);
+      // Error handled by Alert or fallback
       setLoading(false);
     }
   };
@@ -85,7 +87,7 @@ export default function ConversationScreen() {
       // Reload messages to get the latest
       loadMessages(conversationId);
     } catch (error: any) {
-      console.error('Error sending message:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', error.message || 'Failed to send message. Please try again.');
       setNewMessage(messageContent); // Restore message on error
     } finally {

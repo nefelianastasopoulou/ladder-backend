@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, FlatList, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/Colors';
 import { useColorScheme } from '../hooks/useColorScheme';
@@ -27,7 +27,7 @@ export default function CommunitiesScreen() {
       setCommunities(data);
       setFilteredCommunities(data);
     } catch (error) {
-      console.error('Error loading communities:', error);
+      // Error handled by Alert below
       Alert.alert('Error', 'Failed to load communities. Please try again.');
     } finally {
       setLoading(false);
@@ -67,7 +67,7 @@ export default function CommunitiesScreen() {
   };
 
   const renderCommunity = ({ item }: { item: any }) => {
-    // Debug: Log user info
+    // User info available for filtering
     
     return (
       <TouchableOpacity 

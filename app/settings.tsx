@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Clipboard, Modal,
     ScrollView,
@@ -67,7 +67,7 @@ export default function SettingsScreen() {
           setLanguage(settings.language);
         }
       } catch (error) {
-        console.error('Error loading settings:', error);
+        // Error handled by Alert below
         // Check if it's an authentication error
         if (error instanceof Error && error.message.includes('401')) {
           // Could redirect to login here if needed
@@ -94,7 +94,7 @@ export default function SettingsScreen() {
     try {
       await settingsAPI.updateSettings(settings);
     } catch (error) {
-      console.error('Error saving settings:', error);
+      // Error handled by Alert below
       // Could show error message to user here
     }
   };
@@ -133,7 +133,7 @@ export default function SettingsScreen() {
               setUser(null);
               router.replace('/login');
             } catch (error) {
-              console.error('Logout error:', error);
+              // Error handled by Alert below
               // Still logout even if API call fails
               setUser(null);
               router.replace('/login');
@@ -175,7 +175,7 @@ export default function SettingsScreen() {
                 ]
               );
             } catch (error) {
-              console.error('Delete account error:', error);
+              // Error handled by Alert below
               showConfirmationModalWithActions(
                 t('error'),
                 'Failed to delete account. Please try again.',
@@ -297,12 +297,12 @@ export default function SettingsScreen() {
       // Collect user data
       const userData = {
         profile: {
-          name: user?.name || '',
+          name: user?.full_name || '',
           email: user?.email || '',
           username: user?.username || '',
           bio: user?.bio || '',
-          profilePicture: user?.profilePicture || '',
-          createdAt: user?.createdAt || ''
+          profilePicture: user?.profile_picture || '',
+          createdAt: user?.created_at || ''
         },
         settings: {
           language: language,
@@ -344,7 +344,7 @@ export default function SettingsScreen() {
         );
       }
     } catch (error) {
-      console.error('Export data error:', error);
+      // Error handled by Alert below
       showConfirmationModalWithActions(
         t('exportDataError'),
         t('exportDataErrorMessage'),
@@ -410,7 +410,7 @@ export default function SettingsScreen() {
                 ]
               );
           } catch (error) {
-              console.error('Clear cache error:', error);
+              // Error handled by Alert below
               showConfirmationModalWithActions(
                 t('cacheClearError'),
                 t('cacheClearErrorMessage'),

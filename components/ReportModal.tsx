@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { reportsAPI } from '../lib/api';
 
@@ -46,7 +46,7 @@ export default function ReportModal({
         reported_type: reportedType,
         reported_id: reportedId,
         reason: selectedReason,
-        description: description.trim() || undefined
+        ...(description.trim() && { description: description.trim() })
       });
       
       Alert.alert(

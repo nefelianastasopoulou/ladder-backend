@@ -101,7 +101,7 @@ export default function HomeScreen() {
       const data = await opportunitiesAPI.getOpportunities();
       setOpportunities(data || []);
     } catch (error) {
-      console.error('Error fetching opportunities:', error);
+      // Error handled by Alert or fallback
       setOpportunities([]);
     } finally {
       setLoading(false);
@@ -137,7 +137,7 @@ export default function HomeScreen() {
   // Get personalized opportunities
   const personalizedOpportunities = getPersonalizedOpportunities(opportunities);
 
-  // Use raw opportunities directly for now to debug
+  // Use raw opportunities directly for display
   const opportunitiesToFilter = Array.isArray(opportunities) && opportunities.length > 0 ? opportunities : personalizedOpportunities;
 
   const filtered = Array.isArray(opportunitiesToFilter) ? opportunitiesToFilter.filter(item => {
@@ -243,7 +243,7 @@ export default function HomeScreen() {
         {/* Header */}
         <View style={styles.headerRow}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.heading, { color: Colors[colorScheme].tint }]}>{t('welcome')}, {user?.name ? getFormattedFirstName(user.name) : 'User'}!</Text>
+            <Text style={[styles.heading, { color: Colors[colorScheme].tint }]}>{t('welcome')}, {user?.full_name ? getFormattedFirstName(user.full_name) : 'User'}!</Text>
             <Text style={[styles.subheading, { color: '#666', marginTop: 10 }]}>{t('findYourNextOpportunity')}</Text>
           </View>
           <TouchableOpacity

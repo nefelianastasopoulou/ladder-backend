@@ -42,9 +42,9 @@ export default function CommunityScreen() {
         setSearchResults(results);
         setFilteredPosts([]); // Clear posts when searching
       } catch (error) {
-        // Log error for debugging (remove in production)
+        // Error handled by Alert below
         if (__DEV__) {
-          console.error('Search error:', error);
+          // Error handled by Alert or fallback
         }
         setSearchResults({ users: [], posts: [], communities: [] });
       } finally {
@@ -158,7 +158,7 @@ export default function CommunityScreen() {
         activeOpacity={0.9}
         onPress={() => {
           // Navigate to community page (you might want to create this)
-          // Log navigation for debugging (remove in production)
+          // Navigation handled by router
           if (__DEV__) {
           }
         }}

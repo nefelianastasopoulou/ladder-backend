@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     KeyboardAvoidingView,
     Modal,
@@ -297,9 +297,9 @@ export default function OnboardingScreen() {
   const currentQuestion = onboardingQuestions[currentStep];
   const isLastStep = currentStep === onboardingQuestions.length - 1;
   
-  const canProceed = currentQuestion.required ? 
+  const canProceed = currentQuestion?.required ? 
     (currentQuestion.type === 'multiSelect' || currentQuestion.type === 'degreeMulti' ? 
-      selectedMultiOptions[currentQuestion.id]?.length > 0 : 
+      (selectedMultiOptions[currentQuestion.id]?.length || 0) > 0 : 
       answers[currentQuestion.id]) : true;
 
   const handleAnswer = (questionId: string, answer: any) => {
@@ -320,9 +320,9 @@ export default function OnboardingScreen() {
     if (!canProceed) return;
 
     // Save current answer
-    if (currentQuestion.type === 'multiSelect') {
+    if (currentQuestion?.type === 'multiSelect') {
       handleAnswer(currentQuestion.id, selectedMultiOptions[currentQuestion.id] || []);
-    } else if (currentQuestion.type === 'degreeMulti') {
+    } else if (currentQuestion?.type === 'degreeMulti') {
       const degreeAnswers = [...(selectedMultiOptions[currentQuestion.id] || [])];
       handleAnswer(currentQuestion.id, degreeAnswers);
     }
@@ -357,7 +357,7 @@ export default function OnboardingScreen() {
       
       // Add multi-select answers
       Object.keys(selectedMultiOptions).forEach(key => {
-        if (selectedMultiOptions[key]?.length > 0) {
+        if (selectedMultiOptions[key] && selectedMultiOptions[key]?.length > 0) {
           finalAnswers[key] = selectedMultiOptions[key];
         }
       });
@@ -384,7 +384,7 @@ export default function OnboardingScreen() {
       // Navigate directly to main app
       router.replace('/(tabs)');
     } catch (error) {
-      console.error('Error saving onboarding data:', error);
+      // Error handled by Alert or fallback
       // Still navigate to main app even if saving fails
       // In a production app, you might want to show an error message
       router.replace('/(tabs)');
@@ -400,14 +400,14 @@ export default function OnboardingScreen() {
   );
 
   const renderQuestion = () => {
-    switch (currentQuestion.type) {
+    switch (currentQuestion?.type) {
       case 'text':
         return (
           <TextInput
             style={styles.textInput}
             placeholder="Enter your answer..."
-            value={answers[currentQuestion.id] || ''}
-            onChangeText={(text) => handleAnswer(currentQuestion.id, text)}
+            value={answers[currentQuestion?.id] || ''}
+            onChangeText={(text) => handleAnswer(currentQuestion?.id || '', text)}
             placeholderTextColor="#9ca3af"
             returnKeyType="next"
             onSubmitEditing={handleNext}
@@ -427,8 +427,8 @@ export default function OnboardingScreen() {
               activeOpacity={0.6}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={{ color: answers[currentQuestion.id] ? '#1f2937' : '#9ca3af', fontSize: 16, flex: 1 }}>
-                {answers[currentQuestion.id] || 'Search universities...'}
+              <Text style={{ color: answers[currentQuestion?.id] ? '#1f2937' : '#9ca3af', fontSize: 16, flex: 1 }}>
+                {answers[currentQuestion?.id] || 'Search universities...'}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#6b7280" />
             </TouchableOpacity>
@@ -458,7 +458,7 @@ export default function OnboardingScreen() {
                         key={item}
                         style={styles.dropdownItem}
                         onPress={() => {
-                          handleAnswer(currentQuestion.id, item);
+                          handleAnswer(currentQuestion?.id || '', item);
                           setUniversitySearch(item);
                           setShowUniversityList(false);
                         }}
@@ -487,8 +487,8 @@ export default function OnboardingScreen() {
               activeOpacity={0.6}
               hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
             >
-              <Text style={{ color: answers[currentQuestion.id] ? '#1f2937' : '#9ca3af', fontSize: 16, flex: 1 }}>
-                {answers[currentQuestion.id] || 'Search locations...'}
+              <Text style={{ color: answers[currentQuestion?.id] ? '#1f2937' : '#9ca3af', fontSize: 16, flex: 1 }}>
+                {answers[currentQuestion?.id] || 'Search locations...'}
               </Text>
               <Ionicons name="chevron-down" size={20} color="#6b7280" />
             </TouchableOpacity>
@@ -518,7 +518,7 @@ export default function OnboardingScreen() {
                         key={item}
                         style={styles.dropdownItem}
                         onPress={() => {
-                          handleAnswer(currentQuestion.id, item);
+                          handleAnswer(currentQuestion?.id || '', item);
                           setLocationSearch(item);
                           setShowLocationList(false);
                         }}
@@ -538,22 +538,22 @@ export default function OnboardingScreen() {
       case 'select':
         return (
           <View style={styles.optionsContainer}>
-            {currentQuestion.options?.map((option) => (
+            {currentQuestion?.options?.map((option) => (
               <TouchableOpacity
                 key={option}
                 style={[
                   styles.optionButton,
-                  answers[currentQuestion.id] === option && styles.optionButtonSelected
+                  answers[currentQuestion?.id] === option && styles.optionButtonSelected
                 ]}
-                onPress={() => handleAnswer(currentQuestion.id, option)}
+                onPress={() => handleAnswer(currentQuestion?.id || '', option)}
               >
                 <Text style={[
                   styles.optionText,
-                  answers[currentQuestion.id] === option && styles.optionTextSelected
+                  answers[currentQuestion?.id] === option && styles.optionTextSelected
                 ]}>
                   {option}
                 </Text>
-                {answers[currentQuestion.id] === option && (
+                {answers[currentQuestion?.id] === option && (
                   <Ionicons name="checkmark" size={20} color="#fff" />
                 )}
               </TouchableOpacity>
@@ -562,17 +562,17 @@ export default function OnboardingScreen() {
         );
 
       case 'multiSelect':
-        const selectedOptions = selectedMultiOptions[currentQuestion.id] || [];
+        const selectedOptions = selectedMultiOptions[currentQuestion?.id] || [];
         return (
           <View style={styles.optionsContainer}>
-            {currentQuestion.options?.map((option) => (
+            {currentQuestion?.options?.map((option) => (
               <TouchableOpacity
                 key={option}
                 style={[
                   styles.optionButton,
                   selectedOptions.includes(option) && styles.optionButtonSelected
                 ]}
-                onPress={() => handleMultiSelect(currentQuestion.id, option)}
+                onPress={() => handleMultiSelect(currentQuestion?.id || '', option)}
               >
                 <Text style={[
                   styles.optionText,
@@ -589,17 +589,17 @@ export default function OnboardingScreen() {
         );
 
       case 'degreeMulti':
-        const selectedDegrees = selectedMultiOptions[currentQuestion.id] || [];
+        const selectedDegrees = selectedMultiOptions[currentQuestion?.id] || [];
         return (
           <View style={styles.optionsContainer}>
-            {currentQuestion.options?.map((option) => (
+            {currentQuestion?.options?.map((option) => (
               <TouchableOpacity
                 key={option}
                 style={[
                   styles.optionButton,
                   selectedDegrees.includes(option) && styles.optionButtonSelected
                 ]}
-                onPress={() => handleMultiSelect(currentQuestion.id, option)}
+                onPress={() => handleMultiSelect(currentQuestion?.id || '', option)}
               >
                 <Text style={[
                   styles.optionText,
@@ -664,8 +664,8 @@ export default function OnboardingScreen() {
       {/* Question */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.questionContainer}>
-          <Text style={styles.questionTitle}>{currentQuestion.title}</Text>
-          <Text style={styles.questionSubtitle}>{currentQuestion.subtitle}</Text>
+          <Text style={styles.questionTitle}>{currentQuestion?.title}</Text>
+          <Text style={styles.questionSubtitle}>{currentQuestion?.subtitle}</Text>
           
           {renderQuestion()}
         </View>

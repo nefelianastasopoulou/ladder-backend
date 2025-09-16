@@ -99,20 +99,37 @@ Add all the same variables as Railway/Heroku
 ## Mobile App Configuration
 
 ### For Production Build
-1. **Update API URL** in `lib/api.ts`:
-   ```typescript
-   return process.env.EXPO_PUBLIC_API_URL || 'https://your-app-name.railway.app/api';
+
+#### Required Environment Variables
+- `EXPO_PUBLIC_API_URL`: Your Railway backend URL (e.g., `https://your-app-name.railway.app/api`)
+
+#### Optional Environment Variables
+- `EXPO_PUBLIC_APP_NAME`: App name (default: "Ladder")
+- `EXPO_PUBLIC_APP_VERSION`: App version (default: "1.0.0")
+- `EXPO_PUBLIC_DEBUG_MODE`: Enable debug mode (default: "false")
+- `EXPO_PUBLIC_ENABLE_ANALYTICS`: Enable analytics (default: "true")
+- `EXPO_PUBLIC_ENABLE_CRASH_REPORTING`: Enable crash reporting (default: "true")
+- `EXPO_PUBLIC_ENABLE_PUSH_NOTIFICATIONS`: Enable push notifications (default: "true")
+- `EXPO_PUBLIC_SENTRY_DSN`: Sentry DSN for error tracking
+- `EXPO_PUBLIC_ANALYTICS_ID`: Analytics tracking ID
+
+#### Setup Steps
+1. **Copy environment template**:
+   ```bash
+   cp .env.example .env
    ```
 
-2. **Set Environment Variable**:
+2. **Configure your environment variables** in `.env`
+
+3. **Build with EAS**:
+   ```bash
+   eas build --platform all --env production
+   ```
+
+4. **Or build locally**:
    ```bash
    expo build:android --env production
    expo build:ios --env production
-   ```
-
-3. **Or use EAS Build**:
-   ```bash
-   eas build --platform all --env production
    ```
 
 ---

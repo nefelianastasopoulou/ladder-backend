@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
     Alert,
     Image,
@@ -53,14 +53,14 @@ export default function CreatePostScreen() {
         await communitiesAPI.createCommunityPost(parseInt(communityId), {
           title: title.trim(),
           content: content.trim(),
-          image: selectedImage || undefined
+          ...(selectedImage && { image: selectedImage })
         });
       } else {
         // Create platform-wide post
         await communitiesAPI.createPlatformPost({
           title: title.trim(),
           content: content.trim(),
-          image: selectedImage || undefined
+          ...(selectedImage && { image: selectedImage })
         });
       }
       

@@ -72,7 +72,7 @@ export default function AdminPanelScreen() {
       setCommunities(communitiesData || []);
       setPosts(postsData || []);
     } catch (error) {
-      console.error('Error fetching admin data:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to fetch admin data. You may not have admin privileges.');
       router.back();
     } finally {

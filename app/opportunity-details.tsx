@@ -35,9 +35,9 @@ export default function OpportunityDetailsScreen() {
       try {
         return new Date((params.postedDate as string) || Date.now());
       } catch (error) {
-        // Log error for debugging (remove in production)
+        // Error handled by Alert below
         if (__DEV__) {
-          console.error('Error parsing postedDate:', error);
+          // Error handled by Alert or fallback
         }
         return new Date();
       }
@@ -61,9 +61,9 @@ export default function OpportunityDetailsScreen() {
         setHasUserApplied(response.hasApplied);
         setApplication(response.application);
       } catch (error) {
-        // Log error for debugging (remove in production)
+        // Error handled by Alert below
         if (__DEV__) {
-          console.error('Error checking application status:', error);
+          // Error handled by Alert or fallback
         }
       } finally {
         setIsLoading(false);

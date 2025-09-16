@@ -38,7 +38,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
     }
 
     // Extract language code (e.g., 'el' from 'el-GR')
-    const languageCode = locale.split('-')[0].toLowerCase();
+    const languageCode = locale?.split('-')[0]?.toLowerCase() || 'en';
     
     // Return supported language or fallback to English
     if (languageCode === 'el') {
@@ -61,7 +61,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         await AsyncStorage.setItem('app_language', deviceLanguage);
       }
     } catch (error) {
-      console.error('Error loading language:', error);
+      // Error handled by fallback to default language
       // Fallback to English if there's an error
       setLanguageState('en');
     }
@@ -77,7 +77,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       await AsyncStorage.setItem('app_language', newLanguage);
       setLanguageState(newLanguage);
     } catch (error) {
-      console.error('Error saving language:', error);
+      // Error handled by fallback to default language
     }
   };
 

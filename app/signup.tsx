@@ -84,7 +84,10 @@ export default function SignUpScreen() {
         name: fullName || 'User',
         username: username || '',
         email: email || '',
-        is_admin: response.user.is_admin || false
+        is_admin: response.user.is_admin || false,
+        full_name: fullName || 'User',
+        created_at: response.user.created_at || new Date().toISOString(),
+        updated_at: response.user.updated_at || new Date().toISOString()
       };
       
       await setUser(userData);
@@ -94,7 +97,7 @@ export default function SignUpScreen() {
         router.replace('/onboarding');
       }, 100);
     } catch (error: any) {
-      console.error('Signup error:', error);
+      // Error handled by Alert below
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Signup failed. Please try again.';
       Alert.alert(t('error'), errorMessage);
     } finally {

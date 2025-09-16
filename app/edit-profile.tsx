@@ -60,7 +60,7 @@ export default function EditProfileScreen() {
         field: profileData.field || ''
       });
     } catch (error) {
-      console.error('Error fetching profile:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to load profile data');
     } finally {
       setLoading(false);

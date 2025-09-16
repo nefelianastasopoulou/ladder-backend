@@ -4,8 +4,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 
-import { useColorScheme } from '@/hooks/useColorScheme';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalErrorHandler } from '@/components/GlobalErrorHandler';
+import { useColorScheme } from '@/hooks/useColorScheme';
 import { AppProviders } from './context/AppProviders';
 
 export default function RootLayout() {
@@ -21,23 +22,25 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
-      <AppProviders>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="login" />
-            <Stack.Screen name="signup" />
-            <Stack.Screen name="onboarding" />
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="favourites" />
-            <Stack.Screen name="applications" />
-            <Stack.Screen name="user-profile" />
-            <Stack.Screen name="chat" />
-            <Stack.Screen name="post-opportunity" />
-            <Stack.Screen name="+not-found" />
-          </Stack>
-          <StatusBar style="auto" />
-        </ThemeProvider>
-      </AppProviders>
+      <GlobalErrorHandler>
+        <AppProviders>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="login" />
+              <Stack.Screen name="signup" />
+              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="favourites" />
+              <Stack.Screen name="applications" />
+              <Stack.Screen name="user-profile" />
+              <Stack.Screen name="chat" />
+              <Stack.Screen name="post-opportunity" />
+              <Stack.Screen name="+not-found" />
+            </Stack>
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </AppProviders>
+      </GlobalErrorHandler>
     </ErrorBoundary>
   );
 }

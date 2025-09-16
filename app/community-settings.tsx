@@ -47,7 +47,7 @@ export default function CommunitySettingsScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error loading community:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to load community data');
     } finally {
       setLoading(false);

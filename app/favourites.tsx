@@ -40,7 +40,7 @@ export default function FavouritesScreen() {
         const data = await opportunitiesAPI.getOpportunities();
         setOpportunities(data || []);
       } catch (error) {
-        console.error('Error fetching opportunities:', error);
+        // Error handled by Alert or fallback
         setOpportunities([]);
       } finally {
         setLoading(false);

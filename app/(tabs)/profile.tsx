@@ -42,7 +42,7 @@ export default function ProfileScreen() {
       const profileData = await profileAPI.getProfile();
       setProfile(profileData);
     } catch (err) {
-      console.error('Error fetching profile:', err);
+      // Error handled by Alert or fallback
       setError('Failed to load profile');
     } finally {
       setLoading(false);

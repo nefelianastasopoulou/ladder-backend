@@ -1113,5 +1113,5 @@ export const translations: Record<string, Translations> = {
 };
 
 export const getTranslation = (key: keyof Translations, language: string = 'en'): string => {
-  return translations[language]?.[key] || translations.en[key] || key;
+  return translations[language]?.[key] || translations.en?.[key] || key;
 };

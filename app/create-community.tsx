@@ -39,7 +39,7 @@ export default function CreateCommunityScreen() {
       // Community created successfully - navigate to communities list
       router.push('/communities');
     } catch (error: any) {
-      console.error('Error creating community:', error);
+      // Error handled by Alert or fallback
       Alert.alert(
         'Error',
         error.message || 'Failed to create community. Please try again.'

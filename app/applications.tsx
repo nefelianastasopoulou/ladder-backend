@@ -4,7 +4,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     Alert,
     ScrollView,
@@ -45,7 +45,7 @@ export default function ApplicationsScreen() {
         const data = await applicationsAPI.getApplications();
         setApplications(data || []);
       } catch (error) {
-        console.error('Error fetching applications:', error);
+        // Error handled by Alert or fallback
         setApplications([]);
       } finally {
         setLoading(false);
@@ -67,6 +67,11 @@ export default function ApplicationsScreen() {
     const statusOptions = ['applied', 'interviewing', 'accepted', 'rejected', 'waitlisted'];
     const currentIndex = statusOptions.indexOf(currentStatus);
     const nextStatus = statusOptions[(currentIndex + 1) % statusOptions.length];
+    
+    if (!nextStatus) {
+      Alert.alert('Error', 'Invalid status update.');
+      return;
+    }
     
     try {
       await applicationsAPI.updateApplicationStatus(applicationId, nextStatus);

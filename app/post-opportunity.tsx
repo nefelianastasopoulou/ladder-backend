@@ -4,17 +4,17 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View
+    Alert,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
 } from 'react-native';
 import { opportunitiesAPI } from '../lib/api';
 import { useLanguage } from './context/LanguageContext';
@@ -89,10 +89,10 @@ export default function PostOpportunityScreen() {
         category: selectedCategory,
         location: location.trim(),
         field: selectedField || 'Other',
-        deadline: deadline.trim() || undefined,
-        requirements: requirements.trim() || undefined,
-        contact_info: contactInfo.trim() || undefined,
-        application_url: applicationUrl.trim() || undefined,
+        ...(deadline.trim() && { deadline: deadline.trim() }),
+        ...(requirements.trim() && { requirements: requirements.trim() }),
+        ...(contactInfo.trim() && { contact_info: contactInfo.trim() }),
+        ...(applicationUrl.trim() && { application_url: applicationUrl.trim() }),
         is_external_application: isExternalApplication
       });
 
@@ -109,7 +109,7 @@ export default function PostOpportunityScreen() {
       );
     } catch (error: any) {
       setIsSubmitting(false);
-      console.error('Error posting opportunity:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', error.message || 'Failed to post opportunity. Please try again.');
     }
   };

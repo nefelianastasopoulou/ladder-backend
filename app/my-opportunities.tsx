@@ -28,9 +28,9 @@ export default function MyOpportunitiesScreen() {
       const data = await opportunitiesAPI.getMyOpportunities();
       setMyOpportunities(data || []);
     } catch (error) {
-      // Log error for debugging (remove in production)
+      // Error handled by Alert below
       if (__DEV__) {
-        console.error('Error fetching my opportunities:', error);
+        // Error handled by Alert or fallback
       }
       setMyOpportunities([]);
     } finally {

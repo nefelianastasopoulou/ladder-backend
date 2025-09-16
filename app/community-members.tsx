@@ -62,7 +62,7 @@ export default function CommunityMembersScreen() {
         router.back();
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      // Error handled by Alert or fallback
       Alert.alert('Error', 'Failed to load community data');
     } finally {
       setLoading(false);

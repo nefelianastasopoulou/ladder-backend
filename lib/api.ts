@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { logger } from './logger';
+import type {
+    AuthResponse
+} from '../types';
 
 // Environment-based API configuration
 const getApiBaseUrl = () => {
@@ -15,10 +17,10 @@ const getApiBaseUrl = () => {
   
   // Check if we're in development mode
   if (__DEV__) {
-    // For testing with production backend (recommended):
+    // For development, use Railway backend (since you're using Railway for dev too)
     return 'https://ladder-backend-production.up.railway.app/api';
     
-    // For local testing only (if local backend is running):
+    // For local testing (if you want to test locally, uncomment this):
     // return 'http://localhost:3001/api';
   }
   
@@ -26,7 +28,40 @@ const getApiBaseUrl = () => {
   return 'https://ladder-backend-production.up.railway.app/api';
 };
 
-const API_BASE_URL = getApiBaseUrl();
+// Validate API configuration
+const validateApiConfig = () => {
+  const apiUrl = getApiBaseUrl();
+  
+  if (!apiUrl) {
+    throw new Error('API URL not configured. Please set EXPO_PUBLIC_API_URL environment variable.');
+  }
+  
+  if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
+    throw new Error('Invalid API URL format. Must start with http:// or https://');
+  }
+  
+  return apiUrl;
+};
+
+// Environment configuration
+export const config = {
+  apiUrl: getApiBaseUrl(),
+  appName: process.env.EXPO_PUBLIC_APP_NAME || 'Ladder',
+  appVersion: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
+  isDev: __DEV__,
+  isDebug: process.env.EXPO_PUBLIC_DEBUG_MODE === 'true',
+  features: {
+    analytics: process.env.EXPO_PUBLIC_ENABLE_ANALYTICS !== 'false',
+    crashReporting: process.env.EXPO_PUBLIC_ENABLE_CRASH_REPORTING !== 'false',
+    pushNotifications: process.env.EXPO_PUBLIC_ENABLE_PUSH_NOTIFICATIONS !== 'false',
+  },
+  services: {
+    sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
+    analyticsId: process.env.EXPO_PUBLIC_ANALYTICS_ID || '',
+  }
+};
+
+const API_BASE_URL = validateApiConfig();
 
 // Fallback mock data for testing when API is not available
 const MOCK_OPPORTUNITIES = [
@@ -53,7 +88,7 @@ const MOCK_OPPORTUNITIES = [
 ];
 
 // Helper function to make API requests
-const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
+const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}): Promise<T> => {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Log API request in development only
@@ -119,11 +154,32 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       
       console.error(`API Error: ${errorMessage}`, errorDetails);
       
-      // Create more specific error objects
+      // Create more specific error objects with better error types
       const apiError = new Error(errorMessage);
       (apiError as any).status = response.status;
       (apiError as any).details = errorDetails;
       (apiError as any).type = data.error?.type || 'API_ERROR';
+      
+      // Add specific error handling for common HTTP status codes
+      if (response.status === 401) {
+        (apiError as any).type = 'AUTHENTICATION_ERROR';
+        (apiError as any).message = 'Authentication failed. Please log in again.';
+      } else if (response.status === 403) {
+        (apiError as any).type = 'AUTHORIZATION_ERROR';
+        (apiError as any).message = 'You do not have permission to perform this action.';
+      } else if (response.status === 404) {
+        (apiError as any).type = 'NOT_FOUND_ERROR';
+        (apiError as any).message = 'The requested resource was not found.';
+      } else if (response.status === 409) {
+        (apiError as any).type = 'CONFLICT_ERROR';
+        (apiError as any).message = 'This action conflicts with existing data.';
+      } else if (response.status === 429) {
+        (apiError as any).type = 'RATE_LIMIT_ERROR';
+        (apiError as any).message = 'Too many requests. Please try again later.';
+      } else if (response.status >= 500) {
+        (apiError as any).type = 'SERVER_ERROR';
+        (apiError as any).message = 'Server error. Please try again later.';
+      }
       
       throw apiError;
     }
@@ -138,21 +194,41 @@ const apiRequest = async (endpoint: string, options: RequestInit = {}) => {
       if (error.name === 'AbortError') {
         const timeoutError = new Error('Request timeout - please check your internet connection');
         (timeoutError as any).type = 'TIMEOUT_ERROR';
+        (timeoutError as any).status = 408;
         throw timeoutError;
       }
       if (error.message.includes('Network request failed')) {
         const networkError = new Error('Network error - please check your internet connection');
         (networkError as any).type = 'NETWORK_ERROR';
+        (networkError as any).status = 0;
         throw networkError;
       }
       if (error.message.includes('Failed to fetch')) {
         const fetchError = new Error('Unable to connect to server - please check your internet connection');
         (fetchError as any).type = 'CONNECTION_ERROR';
+        (fetchError as any).status = 0;
         throw fetchError;
       }
+      
+      // If it's already an API error with type, preserve it
+      if ((error as any).type) {
+        throw error;
+      }
+      
+      // For other errors, wrap them with a generic error type
+      const genericError = new Error(error.message || 'An unexpected error occurred');
+      (genericError as any).type = 'UNKNOWN_ERROR';
+      (genericError as any).status = 0;
+      (genericError as any).originalError = error;
+      throw genericError;
     }
     
-    throw error;
+    // For non-Error objects
+    const unknownError = new Error('An unexpected error occurred');
+    (unknownError as any).type = 'UNKNOWN_ERROR';
+    (unknownError as any).status = 0;
+    (unknownError as any).originalError = error;
+    throw unknownError;
   }
 };
 
@@ -184,8 +260,8 @@ const removeStoredToken = async (): Promise<void> => {
 
 // Auth API
 export const authAPI = {
-  signUp: async (email: string, password: string, fullName: string, username: string) => {
-    const response = await apiRequest('/auth/signup', {
+  signUp: async (email: string, password: string, fullName: string, username: string): Promise<AuthResponse> => {
+    const response = await apiRequest<AuthResponse>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify({ email, password, full_name: fullName, username }),
     });
@@ -198,8 +274,8 @@ export const authAPI = {
     return response;
   },
 
-  signIn: async (emailOrUsername: string, password: string) => {
-    const response = await apiRequest('/auth/signin', {
+  signIn: async (emailOrUsername: string, password: string): Promise<AuthResponse> => {
+    const response = await apiRequest<AuthResponse>('/auth/signin', {
       method: 'POST',
       body: JSON.stringify({ email: emailOrUsername, username: emailOrUsername, password }),
     });

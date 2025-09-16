@@ -1,17 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { logger } from '../../lib/logger';
-
-interface User {
-  id: number;
-  name: string;
-  username?: string;
-  email: string;
-  is_admin: boolean;
-  bio?: string;
-  profilePicture?: string;
-  createdAt?: string;
-}
+import type { User } from '../../types';
 
 interface UserContextType {
   user: User | null;

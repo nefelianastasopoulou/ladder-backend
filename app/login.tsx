@@ -42,7 +42,10 @@ export default function LoginScreen() {
         name: response.user.full_name || 'User',
         username: response.user.username || '',
         email: response.user.email || '',
-        is_admin: response.user.is_admin || false
+        is_admin: response.user.is_admin || false,
+        full_name: response.user.full_name || 'User',
+        created_at: response.user.created_at || new Date().toISOString(),
+        updated_at: response.user.updated_at || new Date().toISOString()
       };
       
       await setUser(userData);
@@ -52,7 +55,7 @@ export default function LoginScreen() {
         router.replace('/(tabs)/home');
       }, 100);
     } catch (error: any) {
-      console.error('Login error:', error);
+      // Error handled by Alert below
       const errorMessage = error?.response?.data?.error?.message || error?.message || 'Login failed. Please try again.';
       Alert.alert(t('error'), errorMessage);
     } finally {
