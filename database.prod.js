@@ -34,7 +34,11 @@ function getSSLConfig() {
   
   // In production or when SSL is forced, configure SSL
   const sslConfig = {
-    rejectUnauthorized: false // Railway uses self-signed certificates
+    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false',
+    // For Railway, we need to accept self-signed certificates
+    ...(process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway') && {
+      rejectUnauthorized: false
+    })
   };
   
   // Add SSL certificates if provided
