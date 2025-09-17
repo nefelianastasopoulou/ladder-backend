@@ -117,6 +117,10 @@ const runMigrations = async () => {
     
   } catch (error) {
     console.error('💥 Migration process failed:', error);
+    console.error('Error details:', error.message);
+    if (error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
     process.exit(1);
   } finally {
     await pool.end();
@@ -125,7 +129,10 @@ const runMigrations = async () => {
 
 // Run migrations if this script is executed directly
 if (require.main === module) {
-  runMigrations();
+  runMigrations().catch((error) => {
+    console.error('💥 Unhandled error in migration process:', error);
+    process.exit(1);
+  });
 }
 
 module.exports = { runMigrations };
