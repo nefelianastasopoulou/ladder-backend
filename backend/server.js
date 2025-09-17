@@ -16,6 +16,36 @@ require('dotenv').config({
 
 // Import new utilities
 const logger = require('./utils/logger');
+const QueryOptimizer = require('./utils/queryOptimizer');
+
+// Memory monitoring
+const startMemoryMonitoring = () => {
+  const MEMORY_THRESHOLD = 100 * 1024 * 1024; // 100MB
+  const MEMORY_CHECK_INTERVAL = 60000; // 1 minute
+  
+  setInterval(() => {
+    const memUsage = process.memoryUsage();
+    const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+    const rssMB = Math.round(memUsage.rss / 1024 / 1024);
+    
+    // Log memory usage in production
+    if (NODE_ENV === 'production') {
+      logger.info(`Memory usage: ${heapUsedMB}MB heap, ${rssMB}MB RSS`);
+    }
+    
+    // Warn if memory usage is high
+    if (memUsage.heapUsed > MEMORY_THRESHOLD) {
+      logger.warn('High memory usage detected:', {
+        heapUsed: `${heapUsedMB}MB`,
+        rss: `${rssMB}MB`,
+        external: `${Math.round(memUsage.external / 1024 / 1024)}MB`,
+        arrayBuffers: `${Math.round(memUsage.arrayBuffers / 1024 / 1024)}MB`
+      });
+    }
+  }, MEMORY_CHECK_INTERVAL);
+  
+  logger.info('Memory monitoring started');
+};
 
 // Import authentication middleware
 const { authenticateToken, requireAdmin } = require('./middleware/auth');
@@ -601,6 +631,34 @@ app.use(sanitize);
 
 // Middleware
 app.use(cors(corsOptions));
+
+// Performance monitoring middleware
+app.use((req, res, next) => {
+  const start = Date.now();
+  
+  res.on('finish', () => {
+    const duration = Date.now() - start;
+    
+    // Log slow requests
+    if (duration > 1000) {
+      logger.warn('Slow request detected', {
+        method: req.method,
+        url: req.url,
+        duration: `${duration}ms`,
+        statusCode: res.statusCode,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip || req.connection.remoteAddress
+      });
+    }
+    
+    // Log all requests in development
+    if (NODE_ENV === 'development' && duration > 100) {
+      logger.info(`Request: ${req.method} ${req.url} - ${duration}ms - ${res.statusCode}`);
+    }
+  });
+  
+  next();
+});
 app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
 app.use(validateUserInput); // Validate and sanitize all user input
 
@@ -1390,9 +1448,8 @@ app.post('/api/auth/signin', authLimiter, validateRequest('login'), asyncHandler
   let query, queryParam;
   
   if (email && email.includes('@')) {
-    // If email is provided, we need to get all users with that email
-    // and let the user choose or use the first one
-    query = 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE email = $1 LIMIT 1';
+    // If email is provided, get all users with that email
+    query = 'SELECT id, email, password, full_name, username, is_admin FROM users WHERE email = $1';
     queryParam = email;
   } else {
     // Username login (preferred since usernames are unique)
@@ -1407,22 +1464,38 @@ app.post('/api/auth/signin', authLimiter, validateRequest('login'), asyncHandler
     if (!result || !result.rows || result.rows.length === 0) {
       return sendErrorResponse(res, 401, 'Invalid credentials');
     }
-    const user = result.rows[0];
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
+    // If multiple users found with same email, try to authenticate with each one
+    const users = result.rows;
+    let authenticatedUser = null;
+
+    for (const user of users) {
+      const isValidPassword = await bcrypt.compare(password, user.password);
+      if (isValidPassword) {
+        authenticatedUser = user;
+        break;
+      }
+    }
+
+    if (!authenticatedUser) {
       return sendErrorResponse(res, 401, 'Invalid credentials');
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, username: user.username, is_admin: user.is_admin },
+      { id: authenticatedUser.id, email: authenticatedUser.email, username: authenticatedUser.username, is_admin: authenticatedUser.is_admin },
       JWT_SECRET,
       { expiresIn: '7d' }
     );
 
     sendSuccessResponse(res, 200, {
       token,
-      user: { id: user.id, email: user.email, username: user.username, full_name: user.full_name, is_admin: user.is_admin }
+      user: { 
+        id: authenticatedUser.id, 
+        email: authenticatedUser.email, 
+        username: authenticatedUser.username, 
+        full_name: authenticatedUser.full_name, 
+        is_admin: authenticatedUser.is_admin 
+      }
     }, 'Login successful');
   });
 }));
@@ -2892,6 +2965,9 @@ const startServer = () => {
       if (NODE_ENV === 'production') {
         logger.info('Production security features enabled');
       }
+      
+      // Start memory monitoring
+      startMemoryMonitoring();
     });
     
     // Handle server errors
@@ -2903,6 +2979,54 @@ const startServer = () => {
         logger.error(`Port ${PORT} is already in use`);
         process.exit(1);
       }
+    });
+
+    // Graceful shutdown handling
+    const gracefulShutdown = (signal) => {
+      logger.info(`🛑 ${signal} received, shutting down gracefully...`);
+      
+      server.close((err) => {
+        if (err) {
+          logger.error('❌ Error during server shutdown:', err);
+          process.exit(1);
+        }
+        
+        logger.info('✅ HTTP server closed');
+        
+        // Close database connections
+        db.close((err) => {
+          if (err) {
+            logger.error('❌ Error closing database connections:', err);
+            process.exit(1);
+          }
+          
+          logger.info('✅ Database connections closed');
+          logger.info('👋 Process terminated gracefully');
+          process.exit(0);
+        });
+      });
+      
+      // Force close after 10 seconds
+      setTimeout(() => {
+        logger.error('❌ Forced shutdown after timeout');
+        process.exit(1);
+      }, 10000);
+    };
+
+    // Handle different termination signals
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (err) => {
+      logger.error('💥 Uncaught Exception:', err);
+      gracefulShutdown('UNCAUGHT_EXCEPTION');
+    });
+
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      logger.error('💥 Unhandled Rejection at:', promise, 'reason:', reason);
+      gracefulShutdown('UNHANDLED_REJECTION');
     });
     
     return server;

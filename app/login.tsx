@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authAPI } from '../lib/api';
+import { validateLoginInput } from '../lib/validation';
 import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
@@ -21,12 +22,10 @@ export default function LoginScreen() {
       return;
     }
 
-    // Allow both email and username login
-    const isEmail = email.includes('@');
-    const isUsername = /^[a-zA-Z0-9_]{3,20}$/.test(email);
-    
-    if (!isEmail && !isUsername) {
-      Alert.alert(t('error'), 'Please enter a valid email address or username');
+    // Validate login input (email or username)
+    const inputValidation = validateLoginInput(email);
+    if (!inputValidation.isValid) {
+      Alert.alert(t('error'), inputValidation.error);
       return;
     }
 

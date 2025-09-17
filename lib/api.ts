@@ -1,67 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type {
     AuthResponse
 } from '../types';
+import { config, validateConfig } from './config';
+import SecureStorage from './secureStorage';
 
-// Environment-based API configuration
-const getApiBaseUrl = () => {
-  // Priority order:
-  // 1. Environment variable (for different stages)
-  // 2. Development mode fallback
-  // 3. Production fallback
-  
-  const envUrl = process.env.EXPO_PUBLIC_API_URL;
-  if (envUrl) {
-    return envUrl;
-  }
-  
-  // Check if we're in development mode
-  if (__DEV__) {
-    // For development, use Railway backend (since you're using Railway for dev too)
-    return 'https://ladder-backend-production.up.railway.app/api';
-    
-    // For local testing (if you want to test locally, uncomment this):
-    // return 'http://localhost:3001/api';
-  }
-  
-  // For production, use Railway URL
-  return 'https://ladder-backend-production.up.railway.app/api';
-};
+// Validate configuration on import
+validateConfig();
 
-// Validate API configuration
-const validateApiConfig = () => {
-  const apiUrl = getApiBaseUrl();
-  
-  if (!apiUrl) {
-    throw new Error('API URL not configured. Please set EXPO_PUBLIC_API_URL environment variable.');
-  }
-  
-  if (!apiUrl.startsWith('http://') && !apiUrl.startsWith('https://')) {
-    throw new Error('Invalid API URL format. Must start with http:// or https://');
-  }
-  
-  return apiUrl;
-};
-
-// Environment configuration
-export const config = {
-  apiUrl: getApiBaseUrl(),
-  appName: process.env.EXPO_PUBLIC_APP_NAME || 'Ladder',
-  appVersion: process.env.EXPO_PUBLIC_APP_VERSION || '1.0.0',
-  isDev: __DEV__,
-  isDebug: process.env.EXPO_PUBLIC_DEBUG_MODE === 'true',
-  features: {
-    analytics: process.env.EXPO_PUBLIC_ENABLE_ANALYTICS !== 'false',
-    crashReporting: process.env.EXPO_PUBLIC_ENABLE_CRASH_REPORTING !== 'false',
-    pushNotifications: process.env.EXPO_PUBLIC_ENABLE_PUSH_NOTIFICATIONS !== 'false',
-  },
-  services: {
-    sentryDsn: process.env.EXPO_PUBLIC_SENTRY_DSN || '',
-    analyticsId: process.env.EXPO_PUBLIC_ANALYTICS_ID || '',
-  }
-};
-
-const API_BASE_URL = validateApiConfig();
+const API_BASE_URL = config.apiUrl;
 
 // Fallback mock data for testing when API is not available
 const MOCK_OPPORTUNITIES = [
@@ -92,11 +38,11 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Log API request in development only
-  if (__DEV__) {
+  if (config.debugMode) {
     console.log(`API Request: ${options.method || 'GET'} ${url}`);
   }
   
-  const config: RequestInit = {
+  const requestConfig: RequestInit = {
     headers: {
       'Content-Type': 'application/json',
       'ngrok-skip-browser-warning': 'true', // Skip ngrok warning page
@@ -108,8 +54,8 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
   // Add auth token if available
   const token = await getStoredToken();
   if (token) {
-    config.headers = {
-      ...config.headers,
+    requestConfig.headers = {
+      ...requestConfig.headers,
       'Authorization': `Bearer ${token}`,
     };
   }
@@ -120,17 +66,17 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
     
     const response = await fetch(url, {
-      ...config,
+      ...requestConfig,
       signal: controller.signal,
     });
     
     clearTimeout(timeoutId);
     
     // Log API response in development only
-    if (__DEV__) {
+    if (config.debugMode) {
       console.log(`API Response: ${response.status} ${response.statusText}`);
       console.log(`API URL: ${url}`);
-      console.log(`API Headers:`, config.headers);
+      console.log(`API Headers:`, requestConfig.headers);
     }
     
     // Check if response is JSON
@@ -143,7 +89,7 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
     
     const data = await response.json();
     // Log API data in development only
-    if (__DEV__) {
+    if (config.debugMode) {
       console.log(`API Data:`, data);
     }
 
@@ -232,10 +178,22 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
   }
 };
 
-// Token storage functions
+// Token storage functions using secure storage
 const getStoredToken = async (): Promise<string | null> => {
   try {
-    return await AsyncStorage.getItem('authToken');
+    const token = await SecureStorage.getToken();
+    
+    // Validate token format and expiration
+    if (token && SecureStorage.isValidToken(token)) {
+      if (SecureStorage.isTokenExpired(token)) {
+        console.log('Token expired, removing...');
+        await SecureStorage.removeToken();
+        return null;
+      }
+      return token;
+    }
+    
+    return null;
   } catch (error) {
     console.error('Error getting token:', error);
     return null;
@@ -244,7 +202,11 @@ const getStoredToken = async (): Promise<string | null> => {
 
 const setStoredToken = async (token: string): Promise<void> => {
   try {
-    await AsyncStorage.setItem('authToken', token);
+    if (SecureStorage.isValidToken(token)) {
+      await SecureStorage.setToken(token);
+    } else {
+      console.error('Invalid token format');
+    }
   } catch (error) {
     console.error('Error setting token:', error);
   }
@@ -252,7 +214,7 @@ const setStoredToken = async (token: string): Promise<void> => {
 
 const removeStoredToken = async (): Promise<void> => {
   try {
-    await AsyncStorage.removeItem('authToken');
+    await SecureStorage.removeToken();
   } catch (error) {
     console.error('Error removing token:', error);
   }
@@ -402,7 +364,7 @@ export const opportunitiesAPI = {
       return Array.isArray(data) ? data : [];
     } catch (error) {
       // Log fallback to mock data in development only
-      if (__DEV__) {
+      if (config.debugMode) {
         console.log('API not available, using mock data');
       }
       return MOCK_OPPORTUNITIES;

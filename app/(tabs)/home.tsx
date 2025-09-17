@@ -5,9 +5,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { opportunitiesAPI } from '../../lib/api';
+import { debounce } from '../../lib/performance';
 import { getFormattedFirstName } from '../../lib/utils';
 import { useFavorites } from '../context/FavoritesContext';
 import { useLanguage } from '../context/LanguageContext';
@@ -94,8 +95,8 @@ export default function HomeScreen() {
   const { user, isLoading } = useUser();
   const { t } = useLanguage();
 
-  // Fetch opportunities from backend
-  const fetchOpportunities = async () => {
+  // Fetch opportunities from backend with optimization
+  const fetchOpportunities = useCallback(async () => {
     try {
       setLoading(true);
       const data = await opportunitiesAPI.getOpportunities();
@@ -106,7 +107,18 @@ export default function HomeScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  // Debounced search function
+  const debouncedSearch = useMemo(
+    () => debounce((query: string) => {
+      if (query.trim()) {
+        // Implement search logic here
+        // TODO: Implement actual search functionality
+      }
+    }, 300),
+    []
+  );
 
   useEffect(() => {
     fetchOpportunities();

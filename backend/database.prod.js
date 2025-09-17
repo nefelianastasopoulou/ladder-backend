@@ -13,9 +13,9 @@ if (!process.env.DATABASE_URL) {
 const poolConfig = {
   connectionString: process.env.DATABASE_URL,
   ssl: getSSLConfig(),
-  // Connection pool settings
-  max: parseInt(process.env.DB_POOL_MAX) || 20, // Maximum number of clients in the pool
-  min: parseInt(process.env.DB_POOL_MIN) || 2,  // Minimum number of clients in the pool
+  // Connection pool settings (optimized for Railway)
+  max: parseInt(process.env.DB_POOL_MAX) || 10, // Maximum number of clients in the pool
+  min: parseInt(process.env.DB_POOL_MIN) || 1,  // Minimum number of clients in the pool
   idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000, // Close idle clients after 30 seconds
   connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000, // Return an error after 2 seconds if connection could not be established
   maxUses: parseInt(process.env.DB_MAX_USES) || 7500, // Close (and replace) a connection after it has been used this many times

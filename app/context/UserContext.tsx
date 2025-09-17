@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { logger } from '../../lib/logger';
+import SecureStorage from '../../lib/secureStorage';
 import type { User } from '../../types';
 
 interface UserContextType {
@@ -23,9 +24,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   const loadUserFromStorage = async () => {
     try {
-      const storedUser = await AsyncStorage.getItem('user');
+      // Try secure storage first
+      const storedUser = await SecureStorage.getUserData();
       if (storedUser) {
-        setUserState(JSON.parse(storedUser));
+        setUserState(storedUser);
+      } else {
+        // Fallback to regular AsyncStorage for migration
+        const fallbackUser = await AsyncStorage.getItem('user');
+        if (fallbackUser) {
+          const userData = JSON.parse(fallbackUser);
+          setUserState(userData);
+          // Migrate to secure storage
+          await SecureStorage.setUserData(userData);
+          await AsyncStorage.removeItem('user');
+        }
       }
     } catch (error) {
       logger.error('Error loading user from storage:', error);
@@ -38,9 +50,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     try {
       setUserState(userData);
       if (userData) {
-        await AsyncStorage.setItem('user', JSON.stringify(userData));
+        await SecureStorage.setUserData(userData);
       } else {
-        await AsyncStorage.removeItem('user');
+        await SecureStorage.removeUserData();
       }
     } catch (error) {
       logger.error('Error saving user to storage:', error);
@@ -50,7 +62,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const clearUser = async () => {
     try {
       setUserState(null);
-      await AsyncStorage.removeItem('user');
+      await SecureStorage.clearAll();
     } catch (error) {
       logger.error('Error clearing user from storage:', error);
     }

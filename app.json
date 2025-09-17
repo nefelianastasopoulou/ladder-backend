@@ -59,6 +59,12 @@
         "projectId": "1a5b83af-f14f-4e56-93eb-38e9762a39d9"
       }
     },
+    "env": {
+      "EXPO_PUBLIC_API_URL": "https://ladder-backend-production.up.railway.app/api",
+      "EXPO_PUBLIC_APP_NAME": "Ladder",
+      "EXPO_PUBLIC_APP_VERSION": "1.0.0",
+      "EXPO_PUBLIC_DEBUG_MODE": "false"
+    },
     "owner": "nefelianast"
   }
 }

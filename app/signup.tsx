@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, Keyboard, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { authAPI } from '../lib/api';
+import { validateEmail, validateFullName, validatePassword, validateUsername } from '../lib/validation';
 import { useLanguage } from './context/LanguageContext';
 import { useUser } from './context/UserContext';
 
@@ -21,6 +22,7 @@ export default function SignUpScreen() {
   const { t } = useLanguage();
 
   const handleSignUp = async () => {
+    // Basic required field validation
     if (!fullName || !username || !email || !password || !confirmPassword) {
       Alert.alert(t('error'), t('required'));
       return;
@@ -31,42 +33,35 @@ export default function SignUpScreen() {
       return;
     }
 
-    // Validate username format
-    const usernameRegex = /^[a-zA-Z0-9_]+$/;
-    if (!usernameRegex.test(username)) {
-      Alert.alert(t('error'), 'Username must contain only letters, numbers, and underscores');
+    // Validate full name
+    const fullNameValidation = validateFullName(fullName);
+    if (!fullNameValidation.isValid) {
+      Alert.alert(t('error'), fullNameValidation.error);
       return;
     }
 
-    // Check username length
-    if (username.length < 3 || username.length > 20) {
-      Alert.alert(t('error'), 'Username must be between 3 and 20 characters');
+    // Validate username
+    const usernameValidation = validateUsername(username);
+    if (!usernameValidation.isValid) {
+      Alert.alert(t('error'), usernameValidation.error);
       return;
     }
 
-    // Enhanced email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert(t('error'), 'Please enter a valid email address');
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.isValid) {
+      Alert.alert(t('error'), emailValidation.error);
       return;
     }
 
-    if (password.length < 8) {
-      Alert.alert(t('error'), 'Password must be at least 8 characters long');
+    // Validate password
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      Alert.alert(t('error'), passwordValidation.errors.join('\n'));
       return;
     }
 
-    // Check password strength
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasLowercase = /[a-z]/.test(password);
-    const hasNumber = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
-
-    if (!hasUppercase || !hasLowercase || !hasNumber || !hasSpecialChar) {
-      Alert.alert(t('error'), 'Password must contain uppercase, lowercase, number, and special character');
-      return;
-    }
-
+    // Check password confirmation
     if (password !== confirmPassword) {
       Alert.alert(t('error'), t('passwordsMustMatch'));
       return;
