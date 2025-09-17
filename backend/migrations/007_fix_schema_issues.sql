@@ -8,7 +8,7 @@
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_is_admin_boolean') THEN
-        ALTER TABLE users ADD CONSTRAINT check_is_admin_boolean CHECK (is_admin IN (0, 1, true, false));
+        ALTER TABLE users ADD CONSTRAINT check_is_admin_boolean CHECK (is_admin IN (true, false));
     END IF;
 END $$;
 
@@ -16,7 +16,7 @@ END $$;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_is_public_boolean') THEN
-        ALTER TABLE communities ADD CONSTRAINT check_is_public_boolean CHECK (is_public IN (0, 1, true, false));
+        ALTER TABLE communities ADD CONSTRAINT check_is_public_boolean CHECK (is_public IN (true, false));
     END IF;
 END $$;
 
@@ -24,7 +24,7 @@ END $$;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_is_published_boolean') THEN
-        ALTER TABLE posts ADD CONSTRAINT check_is_published_boolean CHECK (is_published IN (0, 1, true, false));
+        ALTER TABLE posts ADD CONSTRAINT check_is_published_boolean CHECK (is_published IN (true, false));
     END IF;
 END $$;
 
@@ -32,7 +32,7 @@ END $$;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_is_read_boolean') THEN
-        ALTER TABLE messages ADD CONSTRAINT check_is_read_boolean CHECK (is_read IN (0, 1, true, false));
+        ALTER TABLE messages ADD CONSTRAINT check_is_read_boolean CHECK (is_read IN (true, false));
     END IF;
 END $$;
 
@@ -40,28 +40,28 @@ END $$;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_email_notifications_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_email_notifications_boolean CHECK (email_notifications IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_email_notifications_boolean CHECK (email_notifications IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_push_notifications_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_push_notifications_boolean CHECK (push_notifications IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_push_notifications_boolean CHECK (push_notifications IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_sound_vibration_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_sound_vibration_boolean CHECK (sound_vibration IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_sound_vibration_boolean CHECK (sound_vibration IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_location_services_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_location_services_boolean CHECK (location_services IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_location_services_boolean CHECK (location_services IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_show_activity_status_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_show_activity_status_boolean CHECK (show_activity_status IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_show_activity_status_boolean CHECK (show_activity_status IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_show_last_seen_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_show_last_seen_boolean CHECK (show_last_seen IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_show_last_seen_boolean CHECK (show_last_seen IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_allow_direct_messages_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_allow_direct_messages_boolean CHECK (allow_direct_messages IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_allow_direct_messages_boolean CHECK (allow_direct_messages IN (true, false));
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_allow_connection_requests_boolean') THEN
-        ALTER TABLE user_settings ADD CONSTRAINT check_allow_connection_requests_boolean CHECK (allow_connection_requests IN (0, 1, true, false));
+        ALTER TABLE user_settings ADD CONSTRAINT check_allow_connection_requests_boolean CHECK (allow_connection_requests IN (true, false));
     END IF;
 END $$;
 
@@ -69,7 +69,7 @@ END $$;
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_is_external_application_boolean') THEN
-        ALTER TABLE opportunities ADD CONSTRAINT check_is_external_application_boolean CHECK (is_external_application IN (0, 1, true, false));
+        ALTER TABLE opportunities ADD CONSTRAINT check_is_external_application_boolean CHECK (is_external_application IN (true, false));
     END IF;
 END $$;
 
