@@ -1,0 +1,25 @@
+node_modules/
+.env
+*.log
+uploads/
+database.db
+database.sqlite
+backups/
+.DS_Store
+*.tmp
+SECRETS.md
+
+# Utility scripts that import SQLite3 (not needed in production)
+server-clean.js
+server-corrupted.js
+update-admin-email.js
+add-username-field.js
+test-profile-api.js
+test-profile.js
+check-admin-status.js
+make-user-admin.js
+add-admin-column.js
+make-admin.js
+
+# Expo
+.expo/
