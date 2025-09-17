@@ -2871,11 +2871,18 @@ app.use(globalErrorHandler);
 // Start server with delay to ensure database is ready
 const startServer = () => {
   logger.info(`About to start server on port: ${PORT}`);
+  logger.info(`Environment variables check:`);
+  logger.info(`- NODE_ENV: ${NODE_ENV}`);
+  logger.info(`- PORT: ${PORT}`);
+  logger.info(`- DATABASE_URL: ${process.env.DATABASE_URL ? 'SET' : 'NOT SET'}`);
+  logger.info(`- JWT_SECRET: ${process.env.JWT_SECRET ? 'SET' : 'NOT SET'}`);
 
   try {
     const server = app.listen(PORT, '0.0.0.0', (err) => {
       if (err) {
         logger.error('Server startup error:', err);
+        logger.error('Error details:', err.message);
+        logger.error('Error code:', err.code);
         process.exit(1);
       }
       logger.info(`✅ Server running on port ${PORT}`);
@@ -2889,6 +2896,8 @@ const startServer = () => {
     // Handle server errors
     server.on('error', (err) => {
       logger.error('Server error:', err);
+      logger.error('Error details:', err.message);
+      logger.error('Error code:', err.code);
       if (err.code === 'EADDRINUSE') {
         logger.error(`Port ${PORT} is already in use`);
         process.exit(1);
@@ -2898,59 +2907,67 @@ const startServer = () => {
     return server;
   } catch (error) {
     logger.error('Failed to start server:', error);
+    logger.error('Error stack:', error.stack);
     process.exit(1);
   }
 };
 
 // Start server after ensuring database is ready
 const startServerWhenReady = async () => {
-  logger.info('Starting server initialization...');
-  logger.info(`Environment: ${NODE_ENV}`);
-  logger.info(`Port: ${PORT}`);
-  logger.info(`Database URL set: ${!!process.env.DATABASE_URL}`);
-  
-  // Start server immediately - don't wait for database (Railway fix)
-  logger.info('Starting server immediately...');
-  const server = startServer();
-  
-  // Test database connection in background (non-blocking)
-  if (process.env.DATABASE_URL) {
-    logger.info('Testing database connection in background...');
-    setTimeout(async () => {
-      let attempts = 0;
-      const maxAttempts = 5;
-      
-      while (attempts < maxAttempts) {
-        try {
-          const dbConnected = await testDatabaseConnection();
-          if (dbConnected) {
-            logger.info('✅ Database connection verified successfully');
-            return;
+  try {
+    logger.info('Starting server initialization...');
+    logger.info(`Environment: ${NODE_ENV}`);
+    logger.info(`Port: ${PORT}`);
+    logger.info(`Database URL set: ${!!process.env.DATABASE_URL}`);
+    
+    // Start server immediately - don't wait for database (Railway fix)
+    logger.info('Starting server immediately...');
+    const server = startServer();
+    
+    // Test database connection in background (non-blocking)
+    if (process.env.DATABASE_URL) {
+      logger.info('Testing database connection in background...');
+      setTimeout(async () => {
+        let attempts = 0;
+        const maxAttempts = 5;
+        
+        while (attempts < maxAttempts) {
+          try {
+            const dbConnected = await testDatabaseConnection();
+            if (dbConnected) {
+              logger.info('✅ Database connection verified successfully');
+              return;
+            }
+          } catch (error) {
+            logger.warn(`Database connection attempt ${attempts + 1} failed:`, error.message);
           }
-        } catch (error) {
-          logger.warn(`Database connection attempt ${attempts + 1} failed:`, error.message);
+          
+          attempts++;
+          if (attempts < maxAttempts) {
+            logger.info(`Retrying database connection in 5 seconds... (${attempts}/${maxAttempts})`);
+            await new Promise(resolve => setTimeout(resolve, 5000));
+          }
         }
         
-        attempts++;
-        if (attempts < maxAttempts) {
-          logger.info(`Retrying database connection in 5 seconds... (${attempts}/${maxAttempts})`);
-          await new Promise(resolve => setTimeout(resolve, 5000));
-        }
-      }
-      
-      logger.error('❌ Failed to connect to database after maximum attempts');
-      logger.warn('Database connection will be retried on first request');
-    }, 2000);
-  } else {
-    logger.warn('⚠️ DATABASE_URL not set - database operations will fail');
+        logger.error('❌ Failed to connect to database after maximum attempts');
+        logger.warn('Database connection will be retried on first request');
+      }, 2000);
+    } else {
+      logger.warn('⚠️ DATABASE_URL not set - database operations will fail');
+    }
+    
+    return server;
+  } catch (error) {
+    logger.error('Error in startServerWhenReady:', error);
+    logger.error('Error stack:', error.stack);
+    throw error;
   }
-  
-  return server;
 };
 
 // Start server when database is ready
 startServerWhenReady().catch((error) => {
   logger.error('Failed to start server:', error);
+  logger.error('Error stack:', error.stack);
   process.exit(1);
 });
 
@@ -2958,11 +2975,13 @@ startServerWhenReady().catch((error) => {
 
 // Handle uncaught exceptions
 process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
   logger.error('Uncaught Exception:', err);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
   logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
   process.exit(1);
 });
