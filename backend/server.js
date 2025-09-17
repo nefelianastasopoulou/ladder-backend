@@ -17,6 +17,9 @@ require('dotenv').config({
 // Import new utilities
 const logger = require('./utils/logger');
 
+// Import authentication middleware
+const { authenticateToken, requireAdmin } = require('./middleware/auth');
+
 // Validate environment variables at startup (only in production)
 try {
   const EnvironmentValidator = require('./config/env-validator');
@@ -952,8 +955,6 @@ initializeApp().catch((error) => {
   // Continue anyway - server will start but database operations may fail
 });
 
-// Import authentication middleware from centralized module
-const { authenticateToken, requireAdmin } = require('./middleware/auth');
 
 // Health check endpoint
 app.get('/', (req, res) => {
