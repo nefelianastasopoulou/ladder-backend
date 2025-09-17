@@ -7,7 +7,11 @@
     "start": "node server.js",
     "dev": "nodemon server.js",
     "build": "echo 'No build step required for Node.js'",
-    "validate-env": "node scripts/validate-env.js"
+    "validate-env": "node scripts/validate-env.js",
+    "migrate": "node scripts/run-migration.js",
+    "db:migrate": "node scripts/run-migration.js",
+    "db:seed": "node scripts/seed-database.js",
+    "db:backup": "node scripts/backup-database.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1490.0",
