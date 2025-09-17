@@ -5,7 +5,7 @@ nixPkgs = ["nodejs"]
 cmds = ["cd backend && npm install --omit=dev"]
 
 [phases.build]
-cmds = ["cd backend && npm run migrate"]
+cmds = ["cd backend && npm run db:migrate"]
 
 [start]
 cmd = "cd backend && npm start"
