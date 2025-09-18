@@ -21,7 +21,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_sender_created ON messages(sender_id, cr
 CREATE INDEX IF NOT EXISTS idx_conversations_participant_updated ON conversations(id, updated_at DESC);
 
 -- Application and opportunity indexes
-CREATE INDEX IF NOT EXISTS idx_applications_user_status_created ON applications(user_id, status, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_applications_user_status_created ON applications(user_id, status, applied_date DESC);
 CREATE INDEX IF NOT EXISTS idx_applications_opportunity_status ON applications(opportunity_id, status);
 -- Only create this index if the category column exists
 DO $$ 
@@ -61,7 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_community_members_user_role ON community_members(
 CREATE INDEX IF NOT EXISTS idx_posts_published_recent ON posts(created_at DESC) WHERE is_published = true;
 CREATE INDEX IF NOT EXISTS idx_communities_public_active ON communities(member_count DESC) WHERE is_public = true AND member_count > 0;
 CREATE INDEX IF NOT EXISTS idx_messages_unread_recent ON messages(created_at DESC) WHERE is_read = false;
-CREATE INDEX IF NOT EXISTS idx_applications_pending ON applications(created_at DESC) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS idx_applications_pending ON applications(applied_date DESC) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS idx_opportunities_active ON opportunities(deadline) WHERE deadline > NOW();
 
 -- Text search indexes (if using PostgreSQL full-text search)
