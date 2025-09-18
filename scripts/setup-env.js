@@ -6,7 +6,7 @@ const path = require('path');
 // Environment setup script
 const environments = {
   development: {
-    EXPO_PUBLIC_API_URL: 'https://ladder-backend-production.up.railway.app/api',
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api',
     EXPO_PUBLIC_APP_NAME: 'Ladder (Dev)',
     EXPO_PUBLIC_APP_VERSION: '1.0.0-dev',
     EXPO_PUBLIC_DEBUG_MODE: 'true',
@@ -15,7 +15,7 @@ const environments = {
     EXPO_PUBLIC_ENABLE_PUSH_NOTIFICATIONS: 'false',
   },
   staging: {
-    EXPO_PUBLIC_API_URL: 'https://ladder-backend-staging.up.railway.app/api',
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STAGING_API_URL || 'https://ladder-backend-staging.up.railway.app/api',
     EXPO_PUBLIC_APP_NAME: 'Ladder (Staging)',
     EXPO_PUBLIC_APP_VERSION: '1.0.0-staging',
     EXPO_PUBLIC_DEBUG_MODE: 'true',
@@ -24,7 +24,7 @@ const environments = {
     EXPO_PUBLIC_ENABLE_PUSH_NOTIFICATIONS: 'false',
   },
   production: {
-    EXPO_PUBLIC_API_URL: 'https://ladder-backend-production.up.railway.app/api',
+    EXPO_PUBLIC_API_URL: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://ladder-backend-production.up.railway.app/api',
     EXPO_PUBLIC_APP_NAME: 'Ladder',
     EXPO_PUBLIC_APP_VERSION: '1.0.0',
     EXPO_PUBLIC_DEBUG_MODE: 'false',

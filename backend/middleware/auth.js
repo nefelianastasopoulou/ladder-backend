@@ -1,246 +1,337 @@
 /**
- * Authentication and Authorization Middleware
- * Provides JWT token validation and role-based access control
+ * Authentication Middleware
+ * Provides JWT token authentication and authorization
  */
 
 const jwt = require('jsonwebtoken');
-const { AuthenticationError, AuthorizationError, NotFoundError } = require('./errorHandler');
-const { sendErrorResponse } = require('../utils/response');
+const config = require('../config/environment');
 const logger = require('../utils/logger');
+const { sendAuthError, sendForbiddenError } = require('../utils/response');
+const db = require('../database');
 
-// JWT token validation middleware
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
-
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-
+/**
+ * Authenticate JWT token
+ */
+const authenticateToken = async (req, res, next) => {
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
-    // Add user info to request
+    // Get token from Authorization header
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
+
+    if (!token) {
+      logger.warn('Authentication failed: No token provided', {
+        ip: req.ip,
+        userAgent: req.get('User-Agent'),
+        path: req.path
+      });
+      return sendAuthError(res, 'Access token is required');
+    }
+
+    // Verify token
+    const decoded = jwt.verify(token, config.JWT_SECRET, {
+      issuer: config.JWT_ISSUER,
+      audience: config.JWT_AUDIENCE
+    });
+
+    // Get user from database
+    const user = await db.query(
+      'SELECT id, email, username, full_name, role, is_active, is_admin, created_at FROM users WHERE id = $1',
+      [decoded.userId]
+    );
+
+    if (!user.rows || user.rows.length === 0) {
+      logger.warn('Authentication failed: User not found', {
+        userId: decoded.userId,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Invalid token: User not found');
+    }
+
+    const userData = user.rows[0];
+
+    // Check if user is active
+    if (!userData.is_active) {
+      logger.warn('Authentication failed: User account is inactive', {
+        userId: userData.id,
+        email: userData.email,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Account is inactive');
+    }
+
+    // Add user to request object
     req.user = {
-      id: decoded.id || decoded.userId, // Support both formats
-      email: decoded.email,
-      username: decoded.username,
-      is_admin: decoded.is_admin || false
+      id: userData.id,
+      email: userData.email,
+      username: userData.username,
+      fullName: userData.full_name,
+      role: userData.role || (userData.is_admin ? 'admin' : 'user'),
+      isAdmin: userData.is_admin || false,
+      createdAt: userData.created_at
     };
 
-    logger.debug('Token validated', {
-      userId: req.user.id,
-      email: req.user.email
+    // Log successful authentication
+    logger.info('User authenticated successfully', {
+      userId: userData.id,
+      email: userData.email,
+      role: userData.role,
+      ip: req.ip,
+      path: req.path
     });
 
     next();
   } catch (error) {
-    logger.warn('Token validation failed', {
-      error: error.message,
-      token: token.substring(0, 20) + '...'
-    });
-
-    if (error.name === 'TokenExpiredError') {
-      return res.status(403).json({ error: 'Token expired' });
-    } else if (error.name === 'JsonWebTokenError') {
-      return res.status(403).json({ error: 'Invalid token' });
+    if (error.name === 'JsonWebTokenError') {
+      logger.warn('Authentication failed: Invalid token', {
+        error: error.message,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Invalid token');
+    } else if (error.name === 'TokenExpiredError') {
+      logger.warn('Authentication failed: Token expired', {
+        expiredAt: error.expiredAt,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Token has expired');
+    } else if (error.name === 'NotBeforeError') {
+      logger.warn('Authentication failed: Token not active', {
+        notBefore: error.date,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Token not yet active');
     } else {
-      return res.status(403).json({ error: 'Token validation failed' });
+      logger.error('Authentication error:', error);
+      return sendAuthError(res, 'Authentication failed');
     }
   }
 };
 
-// Optional authentication middleware (doesn't fail if no token)
-const optionalAuth = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-
-  if (!token) {
-    req.user = null;
-    return next();
-  }
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = {
-      id: decoded.userId,
-      email: decoded.email,
-      username: decoded.username,
-      is_admin: decoded.is_admin || false
-    };
-  } catch (error) {
-    // Don't fail for optional auth, just set user to null
-    req.user = null;
-  }
-
-  next();
-};
-
-// Admin role requirement middleware
+/**
+ * Require admin role
+ */
 const requireAdmin = (req, res, next) => {
   if (!req.user) {
-    return res.status(401).json({ error: 'Authentication required' });
+    logger.warn('Authorization failed: No user in request', {
+      ip: req.ip,
+      path: req.path
+    });
+    return sendAuthError(res, 'Authentication required');
   }
 
-  if (!req.user.is_admin) {
-    logger.warn('Admin access denied', {
+  if (!req.user.isAdmin && req.user.role !== 'admin') {
+    logger.warn('Authorization failed: Insufficient privileges', {
       userId: req.user.id,
-      email: req.user.email,
-      attemptedAction: req.originalUrl
+      userRole: req.user.role,
+      requiredRole: 'admin',
+      ip: req.ip,
+      path: req.path
     });
-    return res.status(403).json({ error: 'Admin access required' });
+    return sendForbiddenError(res, 'Admin privileges required');
   }
+
+  logger.info('Admin access granted', {
+    userId: req.user.id,
+    email: req.user.email,
+    ip: req.ip,
+    path: req.path
+  });
 
   next();
 };
 
-// User ownership or admin middleware
-const requireOwnershipOrAdmin = (userIdParam = 'id') => {
+/**
+ * Require specific role
+ */
+const requireRole = (role) => {
   return (req, res, next) => {
     if (!req.user) {
-      return next(new AuthenticationError('Authentication required'));
+      logger.warn('Authorization failed: No user in request', {
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Authentication required');
     }
 
-    const targetUserId = parseInt(req.params[userIdParam]);
-    const currentUserId = req.user.id;
+    if (req.user.role !== role) {
+      logger.warn('Authorization failed: Insufficient privileges', {
+        userId: req.user.id,
+        userRole: req.user.role,
+        requiredRole: role,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendForbiddenError(res, `${role} privileges required`);
+    }
 
-    if (req.user.is_admin || currentUserId === targetUserId) {
+    logger.info('Role-based access granted', {
+      userId: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      ip: req.ip,
+      path: req.path
+    });
+
+    next();
+  };
+};
+
+/**
+ * Require any of the specified roles
+ */
+const requireAnyRole = (roles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      logger.warn('Authorization failed: No user in request', {
+        ip: req.ip,
+        path: req.path
+      });
+      return sendAuthError(res, 'Authentication required');
+    }
+
+    if (!roles.includes(req.user.role)) {
+      logger.warn('Authorization failed: Insufficient privileges', {
+        userId: req.user.id,
+        userRole: req.user.role,
+        requiredRoles: roles,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendForbiddenError(res, `One of the following roles required: ${roles.join(', ')}`);
+    }
+
+    logger.info('Role-based access granted', {
+      userId: req.user.id,
+      email: req.user.email,
+      role: req.user.role,
+      allowedRoles: roles,
+      ip: req.ip,
+      path: req.path
+    });
+
+    next();
+  };
+};
+
+/**
+ * Optional authentication (doesn't fail if no token)
+ */
+const optionalAuth = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      // No token provided, continue without authentication
+      req.user = null;
       return next();
     }
 
-    logger.warn('Access denied - not owner or admin', {
-      currentUserId,
-      targetUserId,
-      isAdmin: req.user.is_admin,
-      attemptedAction: req.originalUrl
+    // Try to authenticate, but don't fail if token is invalid
+    const decoded = jwt.verify(token, config.JWT_SECRET, {
+      issuer: config.JWT_ISSUER,
+      audience: config.JWT_AUDIENCE
     });
 
-    return next(new AuthorizationError('Access denied - insufficient permissions'));
-  };
-};
+    const user = await db.query(
+      'SELECT id, email, username, full_name, role, is_active, is_admin FROM users WHERE id = $1',
+      [decoded.userId]
+    );
 
-// Community membership middleware
-const requireCommunityMembership = (req, res, next) => {
-  if (!req.user) {
-    return next(new AuthenticationError('Authentication required'));
-  }
-
-  const communityId = req.params.id || req.params.community_id;
-  
-  if (!communityId) {
-    return next(new Error('Community ID required'));
-  }
-
-  // This would need to be implemented with actual database check
-  // For now, we'll assume the route handler will check membership
-  next();
-};
-
-// Rate limiting for authentication endpoints
-const authRateLimit = (req, res, next) => {
-  // This would integrate with express-rate-limit
-  // For now, we'll just pass through
-  next();
-};
-
-// Generate JWT token
-const generateToken = (user) => {
-  const payload = {
-    userId: user.id,
-    email: user.email,
-    username: user.username,
-    is_admin: user.is_admin || false
-  };
-
-  const options = {
-    expiresIn: process.env.JWT_EXPIRES_IN || '24h',
-    issuer: process.env.JWT_ISSUER || 'ladder-backend',
-    audience: process.env.JWT_AUDIENCE || 'ladder-app'
-  };
-
-  return jwt.sign(payload, process.env.JWT_SECRET, options);
-};
-
-// Verify JWT token (utility function)
-const verifyToken = (token) => {
-  try {
-    return jwt.verify(token, process.env.JWT_SECRET);
-  } catch (error) {
-    throw new AuthenticationError(`Token verification failed: ${error.message}`);
-  }
-};
-
-// Extract token from request
-const extractToken = (req) => {
-  const authHeader = req.headers['authorization'];
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.substring(7);
-  }
-  return null;
-};
-
-// Check if user has permission for resource
-const hasPermission = (user, resource, action) => {
-  // Admin has all permissions
-  if (user.is_admin) {
-    return true;
-  }
-
-  // Owner has all permissions for their resources
-  if (resource.owner_id === user.id) {
-    return true;
-  }
-
-  // Define specific permissions
-  const permissions = {
-    post: {
-      read: true, // Anyone can read posts
-      create: true, // Authenticated users can create posts
-      update: false, // Only owner or admin
-      delete: false // Only owner or admin
-    },
-    community: {
-      read: true,
-      create: true,
-      update: false,
-      delete: false
-    },
-    user: {
-      read: true,
-      update: false, // Only self
-      delete: false // Only admin
+    if (user.rows && user.rows.length > 0 && user.rows[0].is_active) {
+      req.user = {
+        id: user.rows[0].id,
+        email: user.rows[0].email,
+        username: user.rows[0].username,
+        fullName: user.rows[0].full_name,
+        role: user.rows[0].role || (user.rows[0].is_admin ? 'admin' : 'user'),
+        isAdmin: user.rows[0].is_admin || false
+      };
+    } else {
+      req.user = null;
     }
-  };
 
-  return permissions[resource.type]?.[action] || false;
+    next();
+  } catch (error) {
+    // Token is invalid, but we don't fail - just set user to null
+    req.user = null;
+    next();
+  }
 };
 
-// Permission middleware factory
-const requirePermission = (resourceType, action) => {
+/**
+ * Check if user owns resource
+ */
+const requireOwnership = (resourceIdParam = 'id') => {
   return (req, res, next) => {
     if (!req.user) {
-      return next(new AuthenticationError('Authentication required'));
+      return sendAuthError(res, 'Authentication required');
     }
 
-    // This would need to be implemented with actual resource checking
-    // For now, we'll pass through and let route handlers implement specific logic
+    const resourceId = req.params[resourceIdParam];
+    const userId = req.user.id;
+
+    // Admin can access any resource
+    if (req.user.isAdmin || req.user.role === 'admin') {
+      return next();
+    }
+
+    // Check if user owns the resource
+    if (parseInt(resourceId) !== parseInt(userId)) {
+      logger.warn('Authorization failed: User does not own resource', {
+        userId: req.user.id,
+        resourceId: resourceId,
+        ip: req.ip,
+        path: req.path
+      });
+      return sendForbiddenError(res, 'You can only access your own resources');
+    }
+
     next();
   };
 };
 
+/**
+ * Generate JWT token
+ */
+const generateToken = (userId, expiresIn = config.JWT_EXPIRES_IN) => {
+  const payload = {
+    userId: userId,
+    iat: Math.floor(Date.now() / 1000)
+  };
+
+  return jwt.sign(payload, config.JWT_SECRET, {
+    expiresIn: expiresIn,
+    issuer: config.JWT_ISSUER,
+    audience: config.JWT_AUDIENCE
+  });
+};
+
+/**
+ * Verify JWT token (utility function)
+ */
+const verifyToken = (token) => {
+  try {
+    return jwt.verify(token, config.JWT_SECRET, {
+      issuer: config.JWT_ISSUER,
+      audience: config.JWT_AUDIENCE
+    });
+  } catch (error) {
+    throw error;
+  }
+};
+
 module.exports = {
-  // Middleware
   authenticateToken,
-  optionalAuth,
   requireAdmin,
-  requireOwnershipOrAdmin,
-  requireCommunityMembership,
-  requirePermission,
-  authRateLimit,
-  
-  // Utilities
+  requireRole,
+  requireAnyRole,
+  optionalAuth,
+  requireOwnership,
   generateToken,
-  verifyToken,
-  extractToken,
-  hasPermission
+  verifyToken
 };

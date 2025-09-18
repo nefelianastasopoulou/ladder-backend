@@ -122,7 +122,7 @@ const sendSuccessResponse = (res, statusCode, data = null, message = null) => {
 };
 
 // Global error handler
-const globalErrorHandler = (err, req, res, next) => {
+const globalErrorHandler = (err, req, res, _next) => {
   let error = { ...err };
   error.message = err.message;
 

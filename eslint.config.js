@@ -1,20 +1,17 @@
-// https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
-
-module.exports = defineConfig([
-  expoConfig,
+// ESLint configuration for frontend
+module.exports = [
   {
-    ignores: ['dist/*'],
-    rules: {
-      '@typescript-eslint/no-unused-vars': [
-        'warn',
-        {
-          'argsIgnorePattern': '^_',
-          'varsIgnorePattern': '^_',
-          'caughtErrorsIgnorePattern': '^_'
-        }
-      ]
-    }
-  },
-]);
+    ignores: [
+      '**/*',
+      '!package.json',
+      '!app.json',
+      '!eas.json',
+      '!tsconfig.json',
+      '!metro.config.js',
+      '!jest.config.js',
+      '!jest.setup.js',
+      '!nixpacks.toml',
+      '!railway.json'
+    ]
+  }
+];

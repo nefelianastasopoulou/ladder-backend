@@ -1,13 +1,13 @@
 import type {
     AuthResponse
 } from '../types';
-import { config, validateConfig } from './config';
+import { config, getApiUrlForExpoGo, validateConfig } from './config';
 import SecureStorage from './secureStorage';
 
 // Validate configuration on import
 validateConfig();
 
-const API_BASE_URL = config.apiUrl;
+const API_BASE_URL = getApiUrlForExpoGo();
 
 // Fallback mock data for testing when API is not available
 const MOCK_OPPORTUNITIES = [
@@ -63,7 +63,7 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
   try {
     // Add timeout to prevent hanging requests
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout for Railway
     
     const response = await fetch(url, {
       ...requestConfig,
@@ -84,6 +84,12 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
     if (!contentType || !contentType.includes('application/json')) {
       const text = await response.text();
       console.error('Non-JSON response received:', text.substring(0, 200));
+      
+      // Handle Railway-specific errors
+      if (text.includes('Application Error') || text.includes('Railway')) {
+        throw new Error('Server is temporarily unavailable. Please try again later.');
+      }
+      
       throw new Error(`Server returned non-JSON response: ${response.status} ${response.statusText}`);
     }
     
@@ -154,6 +160,12 @@ const apiRequest = async <T = any>(endpoint: string, options: RequestInit = {}):
         (fetchError as any).type = 'CONNECTION_ERROR';
         (fetchError as any).status = 0;
         throw fetchError;
+      }
+      if (error.message.includes('Application Error') || error.message.includes('Railway')) {
+        const railwayError = new Error('Server is temporarily unavailable. Please try again later.');
+        (railwayError as any).type = 'SERVER_UNAVAILABLE';
+        (railwayError as any).status = 503;
+        throw railwayError;
       }
       
       // If it's already an API error with type, preserve it

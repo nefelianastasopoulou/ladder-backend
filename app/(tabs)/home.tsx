@@ -113,11 +113,21 @@ export default function HomeScreen() {
   const debouncedSearch = useMemo(
     () => debounce((query: string) => {
       if (query.trim()) {
-        // Implement search logic here
-        // TODO: Implement actual search functionality
+        // Filter opportunities based on search query
+        const filtered = opportunities.filter(opportunity => 
+          opportunity.title.toLowerCase().includes(query.toLowerCase()) ||
+          opportunity.description.toLowerCase().includes(query.toLowerCase()) ||
+          opportunity.company.toLowerCase().includes(query.toLowerCase()) ||
+          opportunity.location.toLowerCase().includes(query.toLowerCase()) ||
+          opportunity.tags.some((tag: string) => tag.toLowerCase().includes(query.toLowerCase()))
+        );
+        setOpportunities(filtered);
+      } else {
+        // If search is empty, show all opportunities
+        setOpportunities(opportunities);
       }
     }, 300),
-    []
+    [opportunities]
   );
 
   useEffect(() => {

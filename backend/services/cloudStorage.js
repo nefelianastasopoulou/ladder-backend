@@ -1,6 +1,6 @@
 const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
 const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
-const multer = require('multer');
+// const multer = require('multer'); // Unused import
 const path = require('path');
 const fs = require('fs');
 

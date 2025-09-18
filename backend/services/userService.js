@@ -182,7 +182,7 @@ class UserService {
     const query = 'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2';
 
     return new Promise((resolve, reject) => {
-      this.db.query(query, [hashedPassword, userId], (err, result) => {
+      this.db.query(query, [hashedPassword, userId], (err, _result) => {
         if (err) {
           logger.error('Error changing password', { error: err.message, userId });
           reject(err);

@@ -1,0 +1,178 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../database');
+const { authenticateToken } = require('../middleware/auth');
+const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
+const logger = require('../utils/logger');
+
+// Get user profile
+router.get('/', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  const query = `
+    SELECT 
+      id, username, email, full_name, bio, location, field, 
+      avatar_url, created_at, updated_at, is_verified
+    FROM users 
+    WHERE id = $1
+  `;
+
+  db.query(query, [userId], (err, result) => {
+    if (err) {
+      console.error('Error fetching profile:', err);
+      return res.status(500).json({ error: 'Failed to fetch profile' });
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    // Remove sensitive information
+    delete user.email; // Don't expose email in profile
+
+    res.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        full_name: user.full_name,
+        bio: user.bio,
+        location: user.location,
+        field: user.field,
+        avatar_url: user.avatar_url,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+        is_verified: user.is_verified
+      }
+    });
+  });
+});
+
+// Update user profile
+router.put('/', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+  const { full_name, username, bio, location, field, avatar_url } = req.body;
+
+  // Validate input
+  if (!full_name && !username && !bio && !location && !field && !avatar_url) {
+    return res.status(400).json({ error: 'At least one field must be provided for update' });
+  }
+
+  // Check if username is already taken (if username is being updated)
+  if (username) {
+    const checkUsernameQuery = 'SELECT id FROM users WHERE username = $1 AND id != $2';
+    db.query(checkUsernameQuery, [username, userId], (err, result) => {
+      if (err) {
+        console.error('Error checking username:', err);
+        return res.status(500).json({ error: 'Failed to check username availability' });
+      }
+
+      if (result.rows.length > 0) {
+        return res.status(409).json({ error: 'Username is already taken' });
+      }
+
+      // Continue with update
+      updateProfile();
+    });
+  } else {
+    updateProfile();
+  }
+
+  function updateProfile() {
+    const updateFields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (full_name) {
+      updateFields.push(`full_name = $${paramCount++}`);
+      values.push(full_name);
+    }
+    if (username) {
+      updateFields.push(`username = $${paramCount++}`);
+      values.push(username);
+    }
+    if (bio !== undefined) {
+      updateFields.push(`bio = $${paramCount++}`);
+      values.push(bio);
+    }
+    if (location) {
+      updateFields.push(`location = $${paramCount++}`);
+      values.push(location);
+    }
+    if (field) {
+      updateFields.push(`field = $${paramCount++}`);
+      values.push(field);
+    }
+    if (avatar_url) {
+      updateFields.push(`avatar_url = $${paramCount++}`);
+      values.push(avatar_url);
+    }
+
+    updateFields.push(`updated_at = NOW()`);
+    values.push(userId);
+
+    const query = `
+      UPDATE users 
+      SET ${updateFields.join(', ')}
+      WHERE id = $${paramCount}
+      RETURNING id, username, full_name, bio, location, field, avatar_url, created_at, updated_at, is_verified
+    `;
+
+    db.query(query, values, (err, result) => {
+      if (err) {
+        console.error('Error updating profile:', err);
+        return res.status(500).json({ error: 'Failed to update profile' });
+      }
+
+      if (result.rows.length === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const user = result.rows[0];
+      res.json({
+        message: 'Profile updated successfully',
+        user: {
+          id: user.id,
+          username: user.username,
+          full_name: user.full_name,
+          bio: user.bio,
+          location: user.location,
+          field: user.field,
+          avatar_url: user.avatar_url,
+          created_at: user.created_at,
+          updated_at: user.updated_at,
+          is_verified: user.is_verified
+        }
+      });
+    });
+  }
+});
+
+// Get user profile by ID (public)
+router.get('/:userId', (req, res) => {
+  const userId = req.params.userId;
+
+  const query = `
+    SELECT 
+      id, username, full_name, bio, location, field, 
+      avatar_url, created_at, is_verified
+    FROM users 
+    WHERE id = $1
+  `;
+
+  db.query(query, [userId], (err, result) => {
+    if (err) {
+      console.error('Error fetching user profile:', err);
+      return res.status(500).json({ error: 'Failed to fetch user profile' });
+    }
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const user = result.rows[0];
+    res.json({ user });
+  });
+});
+
+module.exports = router;

@@ -2,30 +2,37 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Production database configuration (PostgreSQL only)
-if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL environment variable is not set');
+// Production database configuration - DATABASE_URL is required
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  const logger = require('./utils/logger');
+  logger.error('DATABASE_URL environment variable is required for production');
   process.exit(1);
 }
 
 // Connecting to PostgreSQL database
 
-// Enhanced connection pool configuration for performance
+// Enhanced connection pool configuration for production (Railway optimized)
 const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
+  connectionString: DATABASE_URL,
   ssl: getSSLConfig(),
-  // Connection pool settings (optimized for Railway)
-  max: parseInt(process.env.DB_POOL_MAX) || 10, // Maximum number of clients in the pool
-  min: parseInt(process.env.DB_POOL_MIN) || 1,  // Minimum number of clients in the pool
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000, // Return an error after 2 seconds if connection could not be established
-  maxUses: parseInt(process.env.DB_MAX_USES) || 7500, // Close (and replace) a connection after it has been used this many times
-  allowExitOnIdle: true, // Allow the pool to close all connections and exit if no connections are in use
+  // Railway-optimized pool settings for production
+  max: parseInt(process.env.DB_POOL_MAX) || 15, // Reduced for Railway's connection limits
+  min: parseInt(process.env.DB_POOL_MIN) || 2,  // Minimum connections for Railway
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 20000, // Shorter idle timeout for Railway
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000, // Longer timeout for Railway
+  maxUses: parseInt(process.env.DB_MAX_USES) || 5000, // Reduced for Railway stability
+  allowExitOnIdle: false, // Keep connections alive for Railway
+  // Railway-specific optimizations
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 0,
 };
 
 // SSL configuration helper for Railway
 function getSSLConfig() {
   // For Railway, we need to accept self-signed certificates
-  if (process.env.DATABASE_URL && process.env.DATABASE_URL.includes('railway')) {
+  if (DATABASE_URL && DATABASE_URL.includes('railway')) {
     return { rejectUnauthorized: false };
   }
   
@@ -62,31 +69,33 @@ const pool = new Pool(poolConfig);
 pool.on('connect', (client) => {
   // Connected to PostgreSQL database
   // Test the connection with a simple query
-  client.query('SELECT NOW()', (err, result) => {
+  client.query('SELECT NOW()', (err, _result) => {
     if (err) {
-      console.error('❌ Database connection test failed:', err);
+      const logger = require('./utils/logger');
+      logger.error('❌ Database connection test failed:', err);
     } else {
       // Database connection test successful
     }
   });
 });
 
-pool.on('error', (err, client) => {
-  console.error('❌ PostgreSQL connection error:', err);
+pool.on('error', (err, _client) => {
+  const logger = require('./utils/logger');
+  logger.error('❌ PostgreSQL connection error:', err);
   // Log additional error details
   if (err.code) {
-    console.error('Error code:', err.code);
+    logger.error('Error code:', err.code);
   }
   if (err.detail) {
-    console.error('Error detail:', err.detail);
+    logger.error('Error detail:', err.detail);
   }
   if (err.hint) {
-    console.error('Error hint:', err.hint);
+    logger.error('Error hint:', err.hint);
   }
 });
 
 // Handle pool errors
-pool.on('remove', (client) => {
+pool.on('remove', (_client) => {
   // Database client removed from pool
 });
 
@@ -162,8 +171,8 @@ const db = {
       return new Promise((resolve, reject) => {
         executeQuery(query, params, (err, result) => {
           if (err) return reject(err);
-          // Return the result object with rows property for compatibility
-          resolve({ rows: result.rows });
+          // Return the result object directly (result already has rows property from PostgreSQL)
+          resolve(result);
         }, 'query');
       });
     }
@@ -171,8 +180,8 @@ const db = {
     // Callback pattern
     executeQuery(query, params, (err, result) => {
       if (err) return callback(err);
-      // Return the result object with rows property for compatibility
-      callback(null, { rows: result.rows });
+      // Return the result object directly (result already has rows property from PostgreSQL)
+      callback(null, result);
     }, 'query');
   },
   

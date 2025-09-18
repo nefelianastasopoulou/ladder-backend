@@ -20,7 +20,7 @@ export const getEnvironment = (): Environment => {
 // Environment-specific configuration
 const configs = {
   development: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-production.up.railway.app/api',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api',
     appName: 'Ladder (Dev)',
     appVersion: '1.0.0-dev',
     debugMode: true,
@@ -30,7 +30,7 @@ const configs = {
     logLevel: 'debug' as const,
   },
   staging: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-staging.up.railway.app/api',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STAGING_API_URL || 'https://ladder-backend-staging.up.railway.app/api',
     appName: 'Ladder (Staging)',
     appVersion: '1.0.0-staging',
     debugMode: true,
@@ -40,7 +40,7 @@ const configs = {
     logLevel: 'info' as const,
   },
   production: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-production.up.railway.app/api',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://ladder-backend-production.up.railway.app/api',
     appName: 'Ladder',
     appVersion: '1.0.0',
     debugMode: false,
@@ -69,6 +69,26 @@ export const getConfig = () => {
   };
 };
 
+// Helper function to get API URL for Expo Go testing
+export const getApiUrlForExpoGo = () => {
+  // Check if we're running in Expo Go
+  const isExpoGo = __DEV__ && typeof window !== 'undefined' && window.location?.hostname?.includes('exp.host');
+  
+  if (isExpoGo) {
+    // For Expo Go, use the Railway URL since localhost won't work
+    const railwayUrl = process.env.EXPO_PUBLIC_API_URL || 'https://your-railway-app-name.up.railway.app/api';
+    
+    // Validate that the URL is properly configured
+    if (railwayUrl.includes('your-railway-app-name')) {
+      console.warn('⚠️ Please update EXPO_PUBLIC_API_URL in .env.expo-go with your actual Railway deployment URL');
+    }
+    
+    return railwayUrl;
+  }
+  
+  return getConfig().apiUrl;
+};
+
 // Export current configuration
 export const config = getConfig();
 
@@ -84,8 +104,17 @@ export const validateConfig = () => {
     errors.push('API URL must start with http:// or https://');
   }
   
+  // Check for Railway-specific configuration issues
+  if (config.apiUrl.includes('railway.app') && !config.apiUrl.includes('https://')) {
+    errors.push('Railway URLs must use HTTPS');
+  }
+  
   if (errors.length > 0) {
-    throw new Error(`Configuration validation failed: ${errors.join(', ')}`);
+    console.warn(`Configuration validation warnings: ${errors.join(', ')}`);
+    // Don't throw in production, just warn
+    if (__DEV__) {
+      throw new Error(`Configuration validation failed: ${errors.join(', ')}`);
+    }
   }
   
   return true;

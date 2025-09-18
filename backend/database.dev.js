@@ -4,25 +4,67 @@ require('dotenv').config();
 // Development database configuration
 // Using Railway PostgreSQL for development environment
 
-if (!process.env.DATABASE_URL) {
-  console.error('DATABASE_URL environment variable is not set');
+// Use DATABASE_URL for development (PostgreSQL only)
+const DATABASE_URL = process.env.DATABASE_URL;
+
+if (!DATABASE_URL) {
+  console.error('DATABASE_URL environment variable is required for development');
   process.exit(1);
 }
 
 // Connecting to PostgreSQL database for development
 
-// Development connection pool configuration for Railway
+// Development connection pool configuration (Railway compatible)
 const poolConfig = {
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL.includes('railway') ? { rejectUnauthorized: false } : false,
-  // Smaller pool for development
-  max: parseInt(process.env.DB_POOL_MAX) || 10,
+  connectionString: DATABASE_URL,
+  ssl: getSSLConfig(),
+  // Development pool settings (Railway compatible)
+  max: parseInt(process.env.DB_POOL_MAX) || 8, // Reduced for Railway compatibility
   min: parseInt(process.env.DB_POOL_MIN) || 1,
-  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 10000,
-  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 2000,
-  maxUses: parseInt(process.env.DB_MAX_USES) || 1000,
-  allowExitOnIdle: true,
+  idleTimeoutMillis: parseInt(process.env.DB_IDLE_TIMEOUT) || 15000, // Longer for Railway
+  connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT) || 5000, // Longer for Railway
+  maxUses: parseInt(process.env.DB_MAX_USES) || 2000, // Increased for Railway
+  allowExitOnIdle: false, // Keep connections alive for Railway
+  // Railway-specific optimizations
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 0,
 };
+
+// SSL configuration helper for different providers
+function getSSLConfig() {
+  // For Railway, we need to accept self-signed certificates
+  if (DATABASE_URL && DATABASE_URL.includes('railway')) {
+    return { rejectUnauthorized: false };
+  }
+  
+  // For other cloud providers, use standard SSL configuration
+  const sslConfig = {
+    rejectUnauthorized: process.env.DATABASE_SSL_REJECT_UNAUTHORIZED !== 'false'
+  };
+  
+  // Add SSL certificates if provided
+  if (process.env.DATABASE_SSL_CA) {
+    sslConfig.ca = process.env.DATABASE_SSL_CA;
+  }
+  if (process.env.DATABASE_SSL_CERT) {
+    sslConfig.cert = process.env.DATABASE_SSL_CERT;
+  }
+  if (process.env.DATABASE_SSL_KEY) {
+    sslConfig.key = process.env.DATABASE_SSL_KEY;
+  }
+  
+  // For local development, disable SSL
+  if (DATABASE_URL && (DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1'))) {
+    return false;
+  }
+  
+  // If no certificates are provided, use basic SSL
+  if (!sslConfig.ca && !sslConfig.cert && !sslConfig.key) {
+    return sslConfig.rejectUnauthorized ? true : sslConfig;
+  }
+  
+  return sslConfig;
+}
 
 const pool = new Pool(poolConfig);
 
@@ -33,7 +75,7 @@ const pool = new Pool(poolConfig);
 pool.on('connect', (client) => {
   // Connected to PostgreSQL database (development)
   // Test the connection with a simple query
-  client.query('SELECT NOW()', (err, result) => {
+  client.query('SELECT NOW()', (err, _result) => {
     if (err) {
       console.error('❌ Database connection test failed:', err);
     } else {
@@ -42,7 +84,7 @@ pool.on('connect', (client) => {
   });
 });
 
-pool.on('error', (err, client) => {
+pool.on('error', (err, _client) => {
   console.error('❌ PostgreSQL connection error:', err);
   // Log additional error details
   if (err.code) {
@@ -57,7 +99,7 @@ pool.on('error', (err, client) => {
 });
 
 // Handle pool errors
-pool.on('remove', (client) => {
+pool.on('remove', (_client) => {
   // Database client removed from pool
 });
 
@@ -128,10 +170,22 @@ const db = {
 
   // Add query method for compatibility with existing code
   query: (query, params, callback) => {
+    // If no callback is provided, return a promise
+    if (typeof callback !== 'function') {
+      return new Promise((resolve, reject) => {
+        executeQuery(query, params, (err, result) => {
+          if (err) return reject(err);
+          // Return the result object directly (result already has rows property from PostgreSQL)
+          resolve(result);
+        }, 'query');
+      });
+    }
+    
+    // Callback pattern
     executeQuery(query, params, (err, result) => {
       if (err) return callback(err);
-      // Return the result object with rows property for compatibility
-      callback(null, { rows: result.rows });
+      // Return the result object directly (result already has rows property from PostgreSQL)
+      callback(null, result);
     }, 'query');
   },
   

@@ -45,7 +45,7 @@ export default function ConversationScreen() {
       const interval = setInterval(() => {
         loadMessages(conversationId);
       }, 2000);
-      setPollingInterval(interval);
+      setPollingInterval(interval as any);
       
       return () => {
         if (interval) {

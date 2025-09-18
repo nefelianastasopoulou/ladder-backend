@@ -1,51 +1,35 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 // Secure storage utilities for sensitive data like JWT tokens
 class SecureStorage {
   private static readonly TOKEN_KEY = 'auth_token_secure';
   private static readonly USER_KEY = 'user_data_secure';
-  private static readonly ENCRYPTION_KEY = 'ladder_app_key_2024'; // In production, this should be more secure
+  private static readonly SECURE_TOKEN_KEY = 'secure_auth_token';
+  private static readonly SECURE_USER_KEY = 'secure_user_data';
 
-  // Simple encryption/decryption (for demo purposes)
-  // In production, use proper encryption libraries like expo-secure-store
-  private static async encrypt(text: string): Promise<string> {
+  // Check if SecureStore is available (works on real devices)
+  private static isSecureStoreAvailable(): boolean {
     try {
-      // Simple XOR encryption with a key
-      const key = this.ENCRYPTION_KEY;
-      let encrypted = '';
-      for (let i = 0; i < text.length; i++) {
-        encrypted += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-      }
-      return btoa(encrypted); // Base64 encode
-    } catch (error) {
-      console.error('Encryption error:', error);
-      return text; // Fallback to plain text
-    }
-  }
-
-  private static async decrypt(encryptedText: string): Promise<string> {
-    try {
-      const text = atob(encryptedText); // Base64 decode
-      const key = this.ENCRYPTION_KEY;
-      let decrypted = '';
-      for (let i = 0; i < text.length; i++) {
-        decrypted += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-      }
-      return decrypted;
-    } catch (error) {
-      console.error('Decryption error:', error);
-      return encryptedText; // Fallback to original text
+      return SecureStore.isAvailableAsync();
+    } catch {
+      return false;
     }
   }
 
   // Store JWT token securely
   static async setToken(token: string): Promise<void> {
     try {
-      const encryptedToken = await this.encrypt(token);
-      await AsyncStorage.setItem(this.TOKEN_KEY, encryptedToken);
+      if (await this.isSecureStoreAvailable()) {
+        // Use SecureStore for real devices (most secure)
+        await SecureStore.setItemAsync(this.SECURE_TOKEN_KEY, token);
+      } else {
+        // Fallback to AsyncStorage for development/simulator
+        await AsyncStorage.setItem(this.TOKEN_KEY, token);
+      }
     } catch (error) {
       console.error('Error storing token:', error);
-      // Fallback to plain storage
+      // Final fallback to AsyncStorage
       await AsyncStorage.setItem(this.TOKEN_KEY, token);
     }
   }
@@ -53,21 +37,27 @@ class SecureStorage {
   // Retrieve JWT token securely
   static async getToken(): Promise<string | null> {
     try {
-      const encryptedToken = await AsyncStorage.getItem(this.TOKEN_KEY);
-      if (!encryptedToken) return null;
+      if (await this.isSecureStoreAvailable()) {
+        // Try SecureStore first
+        const token = await SecureStore.getItemAsync(this.SECURE_TOKEN_KEY);
+        if (token) return token;
+      }
       
-      const token = await this.decrypt(encryptedToken);
+      // Fallback to AsyncStorage
+      const token = await AsyncStorage.getItem(this.TOKEN_KEY);
       return token;
     } catch (error) {
       console.error('Error retrieving token:', error);
-      // Fallback to plain storage
-      return await AsyncStorage.getItem(this.TOKEN_KEY);
+      return null;
     }
   }
 
   // Remove JWT token
   static async removeToken(): Promise<void> {
     try {
+      if (await this.isSecureStoreAvailable()) {
+        await SecureStore.deleteItemAsync(this.SECURE_TOKEN_KEY);
+      }
       await AsyncStorage.removeItem(this.TOKEN_KEY);
     } catch (error) {
       console.error('Error removing token:', error);
@@ -77,11 +67,18 @@ class SecureStorage {
   // Store user data securely
   static async setUserData(userData: any): Promise<void> {
     try {
-      const encryptedUserData = await this.encrypt(JSON.stringify(userData));
-      await AsyncStorage.setItem(this.USER_KEY, encryptedUserData);
+      const userDataString = JSON.stringify(userData);
+      
+      if (await this.isSecureStoreAvailable()) {
+        // Use SecureStore for real devices
+        await SecureStore.setItemAsync(this.SECURE_USER_KEY, userDataString);
+      } else {
+        // Fallback to AsyncStorage for development/simulator
+        await AsyncStorage.setItem(this.USER_KEY, userDataString);
+      }
     } catch (error) {
       console.error('Error storing user data:', error);
-      // Fallback to plain storage
+      // Final fallback to AsyncStorage
       await AsyncStorage.setItem(this.USER_KEY, JSON.stringify(userData));
     }
   }
@@ -89,22 +86,27 @@ class SecureStorage {
   // Retrieve user data securely
   static async getUserData(): Promise<any | null> {
     try {
-      const encryptedUserData = await AsyncStorage.getItem(this.USER_KEY);
-      if (!encryptedUserData) return null;
+      if (await this.isSecureStoreAvailable()) {
+        // Try SecureStore first
+        const userDataString = await SecureStore.getItemAsync(this.SECURE_USER_KEY);
+        if (userDataString) return JSON.parse(userDataString);
+      }
       
-      const userData = await this.decrypt(encryptedUserData);
-      return JSON.parse(userData);
+      // Fallback to AsyncStorage
+      const userDataString = await AsyncStorage.getItem(this.USER_KEY);
+      return userDataString ? JSON.parse(userDataString) : null;
     } catch (error) {
       console.error('Error retrieving user data:', error);
-      // Fallback to plain storage
-      const userData = await AsyncStorage.getItem(this.USER_KEY);
-      return userData ? JSON.parse(userData) : null;
+      return null;
     }
   }
 
   // Remove user data
   static async removeUserData(): Promise<void> {
     try {
+      if (await this.isSecureStoreAvailable()) {
+        await SecureStore.deleteItemAsync(this.SECURE_USER_KEY);
+      }
       await AsyncStorage.removeItem(this.USER_KEY);
     } catch (error) {
       console.error('Error removing user data:', error);

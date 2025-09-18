@@ -1,219 +1,200 @@
-const { ValidationError } = require('./errorHandler');
+/**
+ * Input Validation Middleware
+ * Provides comprehensive input validation and sanitization
+ */
 
-// Validation rules
-const validationRules = {
-  email: {
-    required: true,
-    type: 'string',
-    pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    message: 'Invalid email format'
-  },
-  
-  password: {
-    required: true,
-    type: 'string',
-    minLength: 8,
-    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
-    message: 'Password must be at least 8 characters with uppercase, lowercase, number, and special character'
-  },
-  
-  username: {
-    required: true,
-    type: 'string',
-    minLength: 3,
-    maxLength: 20,
-    pattern: /^[a-zA-Z0-9_]+$/,
-    message: 'Username must be 3-20 characters, letters, numbers, and underscores only'
-  },
-  
-  fullName: {
-    required: true,
-    type: 'string',
-    minLength: 2,
-    maxLength: 100,
-    message: 'Full name must be between 2 and 100 characters'
-  },
-  
-  content: {
-    required: true,
-    type: 'string',
-    minLength: 10,
-    maxLength: 5000,
-    message: 'Content must be between 10 and 5000 characters'
-  },
-  
-  title: {
-    required: true,
-    type: 'string',
-    minLength: 3,
-    maxLength: 200,
-    message: 'Title must be between 3 and 200 characters'
-  }
-};
+const Joi = require('joi');
+const { sendErrorResponse } = require('../utils/response');
+const logger = require('../utils/logger');
 
-// Generic validation function
-const validate = (data, schema) => {
-  const errors = [];
-  
-  for (const [field, rules] of Object.entries(schema)) {
-    const value = data[field];
-    
-    // Check required fields
-    if (rules.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-      errors.push(`${field} is required`);
-      continue;
-    }
-    
-    // Skip validation if field is not required and not provided
-    if (!rules.required && (!value || (typeof value === 'string' && value.trim() === ''))) {
-      continue;
-    }
-    
-    // Type validation
-    if (rules.type && typeof value !== rules.type) {
-      errors.push(`${field} must be a ${rules.type}`);
-      continue;
-    }
-    
-    // Length validation
-    if (rules.minLength && value.length < rules.minLength) {
-      errors.push(`${field} must be at least ${rules.minLength} characters long`);
-    }
-    
-    if (rules.maxLength && value.length > rules.maxLength) {
-      errors.push(`${field} must be no more than ${rules.maxLength} characters long`);
-    }
-    
-    // Pattern validation
-    if (rules.pattern && !rules.pattern.test(value)) {
-      errors.push(rules.message || `${field} format is invalid`);
-    }
-  }
-  
-  if (errors.length > 0) {
-    throw new ValidationError('Validation failed', errors);
-  }
-  
-  return true;
-};
-
-// Specific validation schemas
+// Common validation schemas
 const schemas = {
-  signup: {
-    email: validationRules.email,
-    password: validationRules.password,
-    username: validationRules.username,
-    fullName: validationRules.fullName
+  // User validation
+  user: {
+    signup: Joi.object({
+      email: Joi.string().email().required().max(255),
+      password: Joi.string().min(8).max(128).required()
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+        .messages({
+          'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
+        }),
+      full_name: Joi.string().min(2).max(100).required().trim(),
+      username: Joi.string().alphanum().min(3).max(30).required().lowercase()
+    }),
+    
+    signin: Joi.object({
+      email: Joi.string().email().required(),
+      password: Joi.string().required()
+    }),
+    
+    updateProfile: Joi.object({
+      full_name: Joi.string().min(2).max(100).optional().trim(),
+      username: Joi.string().alphanum().min(3).max(30).optional().lowercase(),
+      bio: Joi.string().max(500).optional().trim(),
+      location: Joi.string().max(100).optional().trim(),
+      field: Joi.string().max(100).optional().trim(),
+      avatar_url: Joi.string().uri().optional()
+    }),
+    
+    changePassword: Joi.object({
+      current_password: Joi.string().required(),
+      new_password: Joi.string().min(8).max(128).required()
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+        .messages({
+          'string.pattern.base': 'New password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
+        })
+    }),
+    
+    changeEmail: Joi.object({
+      new_email: Joi.string().email().required().max(255)
+    })
   },
   
-  login: {
-    email: { ...validationRules.email, required: false },
-    username: { ...validationRules.username, required: false },
-    password: validationRules.password
+  // Opportunity validation
+  opportunity: {
+    create: Joi.object({
+      title: Joi.string().min(5).max(200).required().trim(),
+      description: Joi.string().max(2000).optional().trim(),
+      category: Joi.string().max(50).optional().trim(),
+      location: Joi.string().max(100).optional().trim(),
+      field: Joi.string().max(100).optional().trim(),
+      image_url: Joi.string().uri().optional(),
+      deadline: Joi.date().iso().optional(),
+      requirements: Joi.string().max(1000).optional().trim(),
+      contact_info: Joi.string().max(200).optional().trim(),
+      application_url: Joi.string().uri().optional(),
+      is_external_application: Joi.boolean().optional()
+    }),
+    
+    update: Joi.object({
+      title: Joi.string().min(5).max(200).optional().trim(),
+      description: Joi.string().max(2000).optional().trim(),
+      category: Joi.string().max(50).optional().trim(),
+      location: Joi.string().max(100).optional().trim(),
+      field: Joi.string().max(100).optional().trim(),
+      image_url: Joi.string().uri().optional(),
+      deadline: Joi.date().iso().optional(),
+      requirements: Joi.string().max(1000).optional().trim(),
+      contact_info: Joi.string().max(200).optional().trim(),
+      application_url: Joi.string().uri().optional(),
+      is_external_application: Joi.boolean().optional()
+    })
   },
   
-  changePassword: {
-    currentPassword: { required: true, type: 'string' },
-    newPassword: validationRules.password
-  },
-  
-  post: {
-    title: validationRules.title,
-    content: validationRules.content
-  },
-  
+  // Community validation
   community: {
-    name: {
-      required: true,
-      type: 'string',
-      minLength: 3,
-      maxLength: 50,
-      pattern: /^[a-zA-Z0-9\s_-]+$/,
-      message: 'Community name must be 3-50 characters, letters, numbers, spaces, hyphens, and underscores only'
-    },
-    description: {
-      required: false,
-      type: 'string',
-      maxLength: 500,
-      message: 'Description must be no more than 500 characters'
-    }
+    create: Joi.object({
+      name: Joi.string().min(3).max(100).required().trim(),
+      description: Joi.string().max(500).required().trim(),
+      category: Joi.string().max(50).optional().trim(),
+      is_public: Joi.boolean().optional()
+    }),
+    
+    update: Joi.object({
+      name: Joi.string().min(3).max(100).optional().trim(),
+      description: Joi.string().max(500).optional().trim(),
+      category: Joi.string().max(50).optional().trim(),
+      is_public: Joi.boolean().optional()
+    })
   },
   
-  profile: {
-    fullName: validationRules.fullName,
-    username: validationRules.username,
-    bio: {
-      required: false,
-      type: 'string',
-      maxLength: 500,
-      message: 'Bio must be no more than 500 characters'
-    },
-    location: {
-      required: false,
-      type: 'string',
-      maxLength: 100,
-      message: 'Location must be no more than 100 characters'
-    }
+  // Post validation
+  post: {
+    create: Joi.object({
+      title: Joi.string().min(5).max(200).required().trim(),
+      content: Joi.string().min(10).max(5000).required().trim(),
+      image: Joi.string().optional() // For file uploads
+    }),
+    
+    update: Joi.object({
+      title: Joi.string().min(5).max(200).optional().trim(),
+      content: Joi.string().min(10).max(5000).optional().trim(),
+      image: Joi.string().optional()
+    })
+  },
+  
+  // Application validation
+  application: {
+    create: Joi.object({
+      opportunity_id: Joi.number().integer().positive().required(),
+      notes: Joi.string().max(500).optional().trim()
+    })
+  },
+  
+  // Report validation
+  report: {
+    create: Joi.object({
+      reported_type: Joi.string().valid('user', 'community', 'post').required(),
+      reported_id: Joi.number().integer().positive().required(),
+      reason: Joi.string().min(5).max(200).required().trim(),
+      description: Joi.string().max(1000).optional().trim()
+    })
+  },
+  
+  // Search validation
+  search: {
+    query: Joi.object({
+      q: Joi.string().min(1).max(100).required().trim(),
+      type: Joi.string().valid('users', 'posts', 'communities', 'all').optional(),
+      limit: Joi.number().integer().min(1).max(50).optional().default(20),
+      offset: Joi.number().integer().min(0).optional().default(0)
+    })
   }
 };
 
-// Middleware factory for validation
-const validateRequest = (schemaName) => {
+// Validation middleware factory
+const validate = (schema, source = 'body') => {
   return (req, res, next) => {
-    try {
-      const schema = schemas[schemaName];
-      if (!schema) {
-        throw new Error(`Validation schema '${schemaName}' not found`);
-      }
-      
-      // Validate request body
-      validate(req.body, schema);
-      
-      // Check for unexpected fields
-      const allowedFields = Object.keys(schema).filter(key => !key.startsWith('_'));
-      const unexpectedFields = Object.keys(req.body).filter(field => !allowedFields.includes(field));
-      
-      if (unexpectedFields.length > 0) {
-        throw new ValidationError(`Unexpected fields: ${unexpectedFields.join(', ')}`);
-      }
-      
-      next();
-    } catch (error) {
-      next(error);
+    const data = req[source];
+    
+    if (!data) {
+      return sendErrorResponse(res, 400, 'Validation data is required');
     }
-  };
-};
-
-// Content length validation middleware
-const validateContentLength = (maxLength = 10000) => {
-  return (req, res, next) => {
-    const contentLength = req.get('content-length');
-    if (contentLength && parseInt(contentLength) > maxLength) {
-      return res.status(413).json({
-        success: false,
-        error: {
-          message: `Request too large. Maximum size is ${maxLength} bytes.`,
-          status: 413,
-          timestamp: new Date().toISOString()
-        }
+    
+    const { error, value } = schema.validate(data, {
+      abortEarly: false,
+      stripUnknown: true,
+      convert: true
+    });
+    
+    if (error) {
+      const errors = error.details.map(detail => ({
+        field: detail.path.join('.'),
+        message: detail.message,
+        value: detail.context?.value
+      }));
+      
+      logger.warn('Validation failed', {
+        errors,
+        source,
+        path: req.path,
+        method: req.method
       });
+      
+      return sendErrorResponse(res, 400, 'Validation failed', { errors });
     }
+    
+    // Replace the original data with validated and sanitized data
+    req[source] = value;
     next();
   };
 };
 
 // Sanitization middleware
 const sanitize = (req, res, next) => {
+  // Remove any potential XSS attempts
   const sanitizeString = (str) => {
     if (typeof str !== 'string') return str;
     return str
-      .replace(/[<>]/g, '') // Remove < and > to prevent HTML injection
-      .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+      .replace(/javascript:/gi, '')
+      .replace(/on\w+\s*=/gi, '')
       .trim();
   };
   
   const sanitizeObject = (obj) => {
     if (typeof obj !== 'object' || obj === null) return obj;
+    
     const sanitized = {};
     for (const [key, value] of Object.entries(obj)) {
       if (typeof value === 'string') {
@@ -238,11 +219,21 @@ const sanitize = (req, res, next) => {
   next();
 };
 
+// Rate limiting for sensitive operations
+const sensitiveRateLimit = require('express-rate-limit')({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 3, // Limit each IP to 3 requests per windowMs
+  message: {
+    error: 'Too many sensitive operations, please try again later.',
+    retryAfter: '15 minutes'
+  },
+  standardHeaders: true,
+  legacyHeaders: false
+});
+
 module.exports = {
-  validate,
-  validateRequest,
-  validateContentLength,
-  sanitize,
   schemas,
-  validationRules
+  validate,
+  sanitize,
+  sensitiveRateLimit
 };
