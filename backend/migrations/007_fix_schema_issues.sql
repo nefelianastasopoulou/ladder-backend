@@ -153,42 +153,129 @@ CREATE INDEX IF NOT EXISTS idx_posts_published_only ON posts(created_at) WHERE i
 CREATE INDEX IF NOT EXISTS idx_communities_public_only ON communities(member_count) WHERE is_public = true;
 CREATE INDEX IF NOT EXISTS idx_messages_unread_only ON messages(created_at) WHERE is_read = false;
 
--- Add constraints for data integrity
-ALTER TABLE users ADD CONSTRAINT check_username_length CHECK (char_length(username) >= 3 AND char_length(username) <= 20);
-ALTER TABLE users ADD CONSTRAINT check_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
-ALTER TABLE users ADD CONSTRAINT check_full_name_length CHECK (char_length(full_name) >= 2 AND char_length(full_name) <= 100);
+-- Add constraints for data integrity (with IF NOT EXISTS checks)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_username_length') THEN
+        ALTER TABLE users ADD CONSTRAINT check_username_length CHECK (char_length(username) >= 3 AND char_length(username) <= 20);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_email_format') THEN
+        ALTER TABLE users ADD CONSTRAINT check_email_format CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$');
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_full_name_length') THEN
+        ALTER TABLE users ADD CONSTRAINT check_full_name_length CHECK (char_length(full_name) >= 2 AND char_length(full_name) <= 100);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_title_length') THEN
+        ALTER TABLE posts ADD CONSTRAINT check_title_length CHECK (char_length(title) >= 1 AND char_length(title) <= 255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_posts_content_length') THEN
+        ALTER TABLE posts ADD CONSTRAINT check_posts_content_length CHECK (char_length(content) >= 10);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_name_length') THEN
+        ALTER TABLE communities ADD CONSTRAINT check_name_length CHECK (char_length(name) >= 3 AND char_length(name) <= 255);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_member_count_positive') THEN
+        ALTER TABLE communities ADD CONSTRAINT check_member_count_positive CHECK (member_count >= 0);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_post_count_positive') THEN
+        ALTER TABLE communities ADD CONSTRAINT check_post_count_positive CHECK (post_count >= 0);
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'check_messages_content_length') THEN
+        ALTER TABLE messages ADD CONSTRAINT check_messages_content_length CHECK (char_length(content) >= 1);
+    END IF;
+END $$;
 
-ALTER TABLE posts ADD CONSTRAINT check_title_length CHECK (char_length(title) >= 1 AND char_length(title) <= 255);
-ALTER TABLE posts ADD CONSTRAINT check_content_length CHECK (char_length(content) >= 10);
-
-ALTER TABLE communities ADD CONSTRAINT check_name_length CHECK (char_length(name) >= 3 AND char_length(name) <= 255);
-ALTER TABLE communities ADD CONSTRAINT check_member_count_positive CHECK (member_count >= 0);
-ALTER TABLE communities ADD CONSTRAINT check_post_count_positive CHECK (post_count >= 0);
-
-ALTER TABLE messages ADD CONSTRAINT check_content_length CHECK (char_length(content) >= 1);
-
--- Add foreign key constraints that might be missing
--- Note: These should already exist, but we'll ensure they're properly set up
-ALTER TABLE posts ADD CONSTRAINT fk_posts_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE posts ADD CONSTRAINT fk_posts_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE;
-ALTER TABLE communities ADD CONSTRAINT fk_communities_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE community_members ADD CONSTRAINT fk_community_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE community_members ADD CONSTRAINT fk_community_members_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE;
-ALTER TABLE messages ADD CONSTRAINT fk_messages_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
-ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE conversation_participants ADD CONSTRAINT fk_conversation_participants_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
-ALTER TABLE conversation_participants ADD CONSTRAINT fk_conversation_participants_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE applications ADD CONSTRAINT fk_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE applications ADD CONSTRAINT fk_applications_opportunity FOREIGN KEY (opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE;
-ALTER TABLE favorites ADD CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE favorites ADD CONSTRAINT fk_favorites_opportunity FOREIGN KEY (opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE;
-ALTER TABLE opportunities ADD CONSTRAINT fk_opportunities_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE reports ADD CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE reports ADD CONSTRAINT fk_reports_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE user_profiles ADD CONSTRAINT fk_user_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE user_settings ADD CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE password_reset_tokens ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-ALTER TABLE conversations ADD CONSTRAINT fk_conversations_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
+-- Add foreign key constraints that might be missing (with IF NOT EXISTS checks)
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_posts_author') THEN
+        ALTER TABLE posts ADD CONSTRAINT fk_posts_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_posts_community') THEN
+        ALTER TABLE posts ADD CONSTRAINT fk_posts_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_communities_creator') THEN
+        ALTER TABLE communities ADD CONSTRAINT fk_communities_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_community_members_user') THEN
+        ALTER TABLE community_members ADD CONSTRAINT fk_community_members_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_community_members_community') THEN
+        ALTER TABLE community_members ADD CONSTRAINT fk_community_members_community FOREIGN KEY (community_id) REFERENCES communities(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_messages_conversation') THEN
+        ALTER TABLE messages ADD CONSTRAINT fk_messages_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_messages_sender') THEN
+        ALTER TABLE messages ADD CONSTRAINT fk_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_conversation_participants_conversation') THEN
+        ALTER TABLE conversation_participants ADD CONSTRAINT fk_conversation_participants_conversation FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_conversation_participants_user') THEN
+        ALTER TABLE conversation_participants ADD CONSTRAINT fk_conversation_participants_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_applications_user') THEN
+        ALTER TABLE applications ADD CONSTRAINT fk_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_applications_opportunity') THEN
+        ALTER TABLE applications ADD CONSTRAINT fk_applications_opportunity FOREIGN KEY (opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_favorites_user') THEN
+        ALTER TABLE favorites ADD CONSTRAINT fk_favorites_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_favorites_opportunity') THEN
+        ALTER TABLE favorites ADD CONSTRAINT fk_favorites_opportunity FOREIGN KEY (opportunity_id) REFERENCES opportunities(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_opportunities_creator') THEN
+        ALTER TABLE opportunities ADD CONSTRAINT fk_opportunities_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reports_reporter') THEN
+        ALTER TABLE reports ADD CONSTRAINT fk_reports_reporter FOREIGN KEY (reporter_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_reports_reviewer') THEN
+        ALTER TABLE reports ADD CONSTRAINT fk_reports_reviewer FOREIGN KEY (reviewed_by) REFERENCES users(id) ON DELETE SET NULL;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_profiles_user') THEN
+        ALTER TABLE user_profiles ADD CONSTRAINT fk_user_profiles_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_settings_user') THEN
+        ALTER TABLE user_settings ADD CONSTRAINT fk_user_settings_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_password_reset_tokens_user') THEN
+        ALTER TABLE password_reset_tokens ADD CONSTRAINT fk_password_reset_tokens_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+    
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_conversations_creator') THEN
+        ALTER TABLE conversations ADD CONSTRAINT fk_conversations_creator FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE;
+    END IF;
+END $$;
 
 -- Add triggers for updated_at timestamps
 CREATE OR REPLACE FUNCTION update_updated_at_column()
