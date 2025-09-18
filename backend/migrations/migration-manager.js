@@ -29,82 +29,104 @@ class MigrationManager {
 
   async createMigrationsTable() {
     try {
-      await this.pool.query(`
-        CREATE TABLE IF NOT EXISTS migrations (
-          id SERIAL PRIMARY KEY,
-          version VARCHAR(255) UNIQUE NOT NULL,
-          name VARCHAR(255) NOT NULL,
-          executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
+      // Check if migrations table exists, create if it doesn't
+      const tableExists = await this.pool.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'migrations'
+        );
       `);
-      // Migrations table ready
+      
+      if (!tableExists.rows[0].exists) {
+        await this.pool.query(`
+          CREATE TABLE migrations (
+            id SERIAL PRIMARY KEY,
+            filename VARCHAR(255) NOT NULL UNIQUE,
+            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          )
+        `);
+        console.log('✅ Migrations table created');
+      } else {
+        console.log('✅ Migrations table already exists');
+      }
     } catch (error) {
-      console.error('❌ Error creating migrations table:', error);
+      console.error('❌ Error checking/creating migrations table:', error);
       throw error;
     }
   }
 
   async getExecutedMigrations() {
     try {
-      const result = await this.pool.query('SELECT version FROM migrations ORDER BY version');
-      return result.rows.map(row => row.version);
+      const result = await this.pool.query('SELECT filename FROM migrations ORDER BY id');
+      return result.rows.map(row => row.filename);
     } catch (error) {
       console.error('❌ Error getting executed migrations:', error);
       throw error;
     }
   }
 
-  async executeMigration(version, name, sql) {
+  async executeMigration(filename, sql) {
     try {
-      // Executing migration
+      console.log(`🔄 Running migration: ${filename}`);
       
       // Execute the migration SQL
       await this.pool.query(sql);
       
       // Record the migration as executed
       await this.pool.query(
-        'INSERT INTO migrations (version, name) VALUES ($1, $2)',
-        [version, name]
+        'INSERT INTO migrations (filename) VALUES ($1)',
+        [filename]
       );
       
-      // Migration completed successfully
+      console.log(`✅ Migration completed: ${filename}`);
     } catch (error) {
-      console.error(`❌ Error executing migration ${version}:`, error);
+      console.error(`❌ Migration failed: ${filename}`, error);
       throw error;
     }
   }
 
   async runMigrations() {
     try {
+      console.log('🚀 Starting database migrations...');
+      
       await this.connect();
       await this.createMigrationsTable();
       
-      const executedMigrations = await this.getExecutedMigrations();
-      // Migrations executed
-      
       // Get all migration files
       const migrationsDir = path.join(__dirname);
-      const files = fs.readdirSync(migrationsDir)
+      const migrationFiles = fs.readdirSync(migrationsDir)
         .filter(file => file.endsWith('.sql'))
-        .sort();
+        .sort(); // Sort to ensure correct order
       
-      // Migration files found
+      const executedMigrations = await this.getExecutedMigrations();
       
-      for (const file of files) {
-        const version = file.split('_')[0];
-        const name = file.replace('.sql', '').replace(`${version}_`, '');
-        
-        if (!executedMigrations.includes(version)) {
-          const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-          await this.executeMigration(version, name, sql);
-        } else {
-          // Migration already executed, skipping
-        }
+      // Find pending migrations
+      const pendingMigrations = migrationFiles.filter(
+        file => !executedMigrations.includes(file)
+      );
+      
+      if (pendingMigrations.length === 0) {
+        console.log('✅ No pending migrations');
+        return;
       }
       
-      // All migrations completed successfully
+      console.log(`📋 Found ${pendingMigrations.length} pending migrations`);
+      
+      // Execute pending migrations
+      for (const migration of pendingMigrations) {
+        const sql = fs.readFileSync(path.join(migrationsDir, migration), 'utf8');
+        await this.executeMigration(migration, sql);
+      }
+      
+      console.log('🎉 All migrations completed successfully!');
+      
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      console.error('💥 Migration process failed:', error);
+      console.error('Error details:', error.message);
+      if (error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
       throw error;
     }
   }
