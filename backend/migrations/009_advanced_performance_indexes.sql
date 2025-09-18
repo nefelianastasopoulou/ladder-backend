@@ -62,7 +62,8 @@ CREATE INDEX IF NOT EXISTS idx_posts_published_recent ON posts(created_at DESC) 
 CREATE INDEX IF NOT EXISTS idx_communities_public_active ON communities(member_count DESC) WHERE is_public = true AND member_count > 0;
 CREATE INDEX IF NOT EXISTS idx_messages_unread_recent ON messages(created_at DESC) WHERE is_read = false;
 CREATE INDEX IF NOT EXISTS idx_applications_pending ON applications(applied_date DESC) WHERE status = 'pending';
-CREATE INDEX IF NOT EXISTS idx_opportunities_active ON opportunities(deadline) WHERE deadline > NOW();
+-- Note: Removed index with NOW() function as it's not IMMUTABLE
+-- CREATE INDEX IF NOT EXISTS idx_opportunities_active ON opportunities(deadline) WHERE deadline > NOW();
 
 -- Text search indexes (if using PostgreSQL full-text search)
 CREATE INDEX IF NOT EXISTS idx_posts_content_search ON posts USING gin(to_tsvector('english', content));
