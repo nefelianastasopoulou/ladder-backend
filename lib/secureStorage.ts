@@ -9,9 +9,9 @@ class SecureStorage {
   private static readonly SECURE_USER_KEY = 'secure_user_data';
 
   // Check if SecureStore is available (works on real devices)
-  private static isSecureStoreAvailable(): boolean {
+  private static async isSecureStoreAvailable(): Promise<boolean> {
     try {
-      return SecureStore.isAvailableAsync();
+      return await SecureStore.isAvailableAsync();
     } catch {
       return false;
     }
