@@ -4,7 +4,7 @@
 -- Composite indexes for common query patterns
 CREATE INDEX IF NOT EXISTS idx_posts_author_published_created ON posts(author_id, is_published, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_posts_community_published_created ON posts(community_id, is_published, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_posts_category_published_created ON posts(category, is_published, created_at DESC);
+-- Note: posts table doesn't have a category column, so this index is removed
 
 -- User activity indexes
 CREATE INDEX IF NOT EXISTS idx_users_created_at_desc ON users(created_at DESC);
@@ -23,7 +23,13 @@ CREATE INDEX IF NOT EXISTS idx_conversations_participant_updated ON conversation
 -- Application and opportunity indexes
 CREATE INDEX IF NOT EXISTS idx_applications_user_status_created ON applications(user_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_applications_opportunity_status ON applications(opportunity_id, status);
-CREATE INDEX IF NOT EXISTS idx_opportunities_category_deadline ON opportunities(category, deadline);
+-- Only create this index if the category column exists
+DO $$ 
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'opportunities' AND column_name = 'category') THEN
+        CREATE INDEX IF NOT EXISTS idx_opportunities_category_deadline ON opportunities(category, deadline);
+    END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS idx_opportunities_created_by_created ON opportunities(created_by, created_at DESC);
 
 -- Favorites and likes indexes
