@@ -14,7 +14,8 @@
     "db:backup": "node scripts/backup-database.js"
   },
   "dependencies": {
-    "aws-sdk": "^2.1490.0",
+    "@aws-sdk/client-s3": "^3.891.0",
+    "@aws-sdk/s3-request-presigner": "^3.891.0",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.41.0",
     "cors": "^2.8.5",
@@ -26,7 +27,8 @@
     "multer": "^2.0.2",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
-    "pg": "^8.11.3"
+    "pg": "^8.11.3",
+    "expo": "latest"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"

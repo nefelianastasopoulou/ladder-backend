@@ -1,12 +1,15 @@
-const AWS = require('aws-sdk');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand, GetObjectCommand } = require('@aws-sdk/client-s3');
+const { getSignedUrl } = require('@aws-sdk/s3-request-presigner');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Configure AWS S3
-const s3 = new AWS.S3({
-  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+// Configure AWS S3 Client
+const s3Client = new S3Client({
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
   region: process.env.AWS_REGION || 'us-east-1'
 });
 
@@ -46,13 +49,14 @@ class CloudStorageService {
       // Removed ACL: 'public-read' for private bucket
     };
 
-    const result = await s3.upload(uploadParams).promise();
+    const command = new PutObjectCommand(uploadParams);
+    await s3Client.send(command);
     
     // Clean up local file
     fs.unlinkSync(file.path);
     
     return {
-      url: result.Location,
+      url: `https://${BUCKET_NAME}.s3.${process.env.AWS_REGION || 'us-east-1'}.amazonaws.com/${fileName}`,
       key: fileName, // Store the S3 key for generating signed URLs
       size: file.size,
       mimetype: file.mimetype
@@ -113,7 +117,8 @@ class CloudStorageService {
   async deleteFile(fileUrl, fileKey = null) {
     try {
       if (this.storageType === 's3' && fileKey) {
-        await s3.deleteObject({ Bucket: BUCKET_NAME, Key: fileKey }).promise();
+        const command = new DeleteObjectCommand({ Bucket: BUCKET_NAME, Key: fileKey });
+        await s3Client.send(command);
       } else if (this.storageType === 'cloudinary' && fileKey) {
         const cloudinary = require('cloudinary').v2;
         await cloudinary.uploader.destroy(fileKey);
@@ -133,7 +138,8 @@ class CloudStorageService {
   async getFileInfo(fileUrl, fileKey = null) {
     try {
       if (this.storageType === 's3' && fileKey) {
-        const result = await s3.headObject({ Bucket: BUCKET_NAME, Key: fileKey }).promise();
+        const command = new HeadObjectCommand({ Bucket: BUCKET_NAME, Key: fileKey });
+        const result = await s3Client.send(command);
         return {
           size: result.ContentLength,
           lastModified: result.LastModified,
@@ -158,13 +164,12 @@ class CloudStorageService {
   async getSignedUrl(fileKey, expiresIn = 3600) {
     try {
       if (this.storageType === 's3') {
-        const params = {
+        const command = new GetObjectCommand({
           Bucket: BUCKET_NAME,
-          Key: fileKey,
-          Expires: expiresIn // URL expires in 1 hour by default
-        };
+          Key: fileKey
+        });
         
-        const signedUrl = s3.getSignedUrl('getObject', params);
+        const signedUrl = await getSignedUrl(s3Client, command, { expiresIn });
         return signedUrl;
       } else {
         // For local storage, return the direct URL

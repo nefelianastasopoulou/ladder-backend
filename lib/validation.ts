@@ -113,7 +113,7 @@ export const validateLoginInput = (input: string): { isValid: boolean; error?: s
     const emailValidation = validateEmail(input);
     return {
       isValid: emailValidation.isValid,
-      error: emailValidation.error,
+      ...(emailValidation.error && { error: emailValidation.error }),
       type: 'email'
     };
   } else if (isUsername) {
