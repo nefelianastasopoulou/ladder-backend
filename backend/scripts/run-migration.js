@@ -33,18 +33,29 @@ const getMigrationFiles = () => {
 // Check if migrations table exists
 const checkMigrationsTable = async () => {
   try {
-    // Drop and recreate migrations table to ensure correct schema
-    await pool.query('DROP TABLE IF EXISTS migrations');
-    await pool.query(`
-      CREATE TABLE migrations (
-        id SERIAL PRIMARY KEY,
-        filename VARCHAR(255) NOT NULL UNIQUE,
-        executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
+    // Check if migrations table exists, create if it doesn't
+    const tableExists = await pool.query(`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'migrations'
+      );
     `);
-    console.log('✅ Migrations table ready');
+    
+    if (!tableExists.rows[0].exists) {
+      await pool.query(`
+        CREATE TABLE migrations (
+          id SERIAL PRIMARY KEY,
+          filename VARCHAR(255) NOT NULL UNIQUE,
+          executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      console.log('✅ Migrations table created');
+    } else {
+      console.log('✅ Migrations table already exists');
+    }
   } catch (error) {
-    console.error('❌ Error creating migrations table:', error);
+    console.error('❌ Error checking/creating migrations table:', error);
     throw error;
   }
 };
