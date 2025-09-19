@@ -71,7 +71,7 @@ router.get('/communities', authenticateToken, requireAdmin, (req, res) => {
       u.username as created_by_username, u.full_name as created_by_name,
       COUNT(cm.user_id) as member_count
     FROM communities c
-    LEFT JOIN users u ON c.created_by = u.id
+    LEFT JOIN users u ON c.creator_id = u.id
     LEFT JOIN community_members cm ON c.id = cm.community_id
   `;
   let countQuery = 'SELECT COUNT(*) as total FROM communities';
