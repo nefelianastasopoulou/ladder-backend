@@ -33,7 +33,7 @@ const environments = {
     TRUST_PROXY: false,
     
     // File storage (local for development)
-    STORAGE_TYPE: 'local',
+    STORAGE_TYPE: process.env.STORAGE_TYPE || 'local',
     
     // SSL (disabled for local development)
     DATABASE_SSL_REJECT_UNAUTHORIZED: false,
@@ -68,7 +68,7 @@ const environments = {
     TRUST_PROXY: true,
     
     // File storage (can use cloud storage for staging)
-    STORAGE_TYPE: 'local',
+    STORAGE_TYPE: process.env.STORAGE_TYPE || 'local',
     
     // SSL (enabled for staging)
     DATABASE_SSL_REJECT_UNAUTHORIZED: true,
@@ -103,7 +103,7 @@ const environments = {
     TRUST_PROXY: true,
     
     // File storage (cloud storage recommended for production)
-    STORAGE_TYPE: 'local',
+    STORAGE_TYPE: process.env.STORAGE_TYPE || 's3',
     
     // SSL (enabled for production)
     DATABASE_SSL_REJECT_UNAUTHORIZED: true,
@@ -138,7 +138,7 @@ const environments = {
     TRUST_PROXY: false,
     
     // File storage (local for tests)
-    STORAGE_TYPE: 'local',
+    STORAGE_TYPE: process.env.STORAGE_TYPE || 'local',
     
     // SSL (disabled for tests)
     DATABASE_SSL_REJECT_UNAUTHORIZED: false,
