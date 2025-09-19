@@ -83,18 +83,18 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
+    // Find user by email OR username
     const user = await db.query(
-      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1',
+      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
       [email]
     );
 
     if (user.rows.length === 0) {
-      logger.warn('Login attempt with non-existent email', {
+      logger.warn('Login attempt with non-existent email/username', {
         email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password');
     }
 
     const userData = user.rows[0];
@@ -356,18 +356,18 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
+    // Find user by email OR username
     const user = await db.query(
-      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1',
+      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
       [email]
     );
 
     if (user.rows.length === 0) {
-      logger.warn('Login attempt with non-existent email', {
+      logger.warn('Login attempt with non-existent email/username', {
         email: email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password');
     }
 
     const userData = user.rows[0];
