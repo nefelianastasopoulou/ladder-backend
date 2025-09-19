@@ -62,7 +62,7 @@ const environments = {
     RATE_LIMIT_MAX_REQUESTS: 500,
     
     // CORS (specific origins for staging - includes Expo Go)
-    ALLOWED_ORIGINS: 'https://ladder-production.up.railway.app,exp://192.168.1.100:8081,exp://localhost:8081',
+    ALLOWED_ORIGINS: 'https://ladder-backend-production.up.railway.app,exp://192.168.1.100:8081,exp://localhost:8081',
     
     // Security
     TRUST_PROXY: true,
@@ -97,7 +97,7 @@ const environments = {
     RATE_LIMIT_MAX_REQUESTS: 100,
     
     // CORS (specific origins for production - mobile apps don't send origin)
-    ALLOWED_ORIGINS: 'https://ladder-production.up.railway.app',
+    ALLOWED_ORIGINS: 'https://ladder-backend-production.up.railway.app',
     
     // Security (strict for production)
     TRUST_PROXY: true,

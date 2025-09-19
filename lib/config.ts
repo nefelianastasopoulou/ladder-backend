@@ -20,7 +20,7 @@ export const getEnvironment = (): Environment => {
 // Environment-specific configuration
 const configs = {
   development: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || (process.env.EXPO_PUBLIC_RAILWAY_DEPLOYMENT === 'true' ? 'https://ladder-production.up.railway.app/api' : 'http://localhost:3001/api'),
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || (process.env.EXPO_PUBLIC_RAILWAY_DEPLOYMENT === 'true' ? 'https://ladder-backend-production.up.railway.app/api' : 'http://localhost:3001/api'),
     appName: 'Ladder (Dev)',
     appVersion: '1.0.0-dev',
     debugMode: true,
@@ -30,7 +30,7 @@ const configs = {
     logLevel: 'debug' as const,
   },
   staging: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STAGING_API_URL || 'https://ladder-production.up.railway.app/api',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_STAGING_API_URL || 'https://ladder-backend-production.up.railway.app/api',
     appName: 'Ladder (Staging)',
     appVersion: '1.0.0-staging',
     debugMode: true,
@@ -40,7 +40,7 @@ const configs = {
     logLevel: 'info' as const,
   },
   production: {
-    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://ladder-production.up.railway.app/api',
+    apiUrl: process.env.EXPO_PUBLIC_API_URL || process.env.EXPO_PUBLIC_PRODUCTION_API_URL || 'https://ladder-backend-production.up.railway.app/api',
     appName: 'Ladder',
     appVersion: '1.0.0',
     debugMode: false,
@@ -79,7 +79,7 @@ export const getApiUrlForExpoGo = () => {
   
   if (isExpoGo) {
     // For Expo Go, prioritize Railway URL since localhost won't work
-    const railwayUrl = process.env.EXPO_PUBLIC_API_URL || 'https://ladder-production.up.railway.app/api';
+    const railwayUrl = process.env.EXPO_PUBLIC_API_URL || 'https://ladder-backend-production.up.railway.app/api';
     
     // Validate that the URL is properly configured
     if (railwayUrl.includes('your-railway-app-name') || railwayUrl.includes('localhost')) {

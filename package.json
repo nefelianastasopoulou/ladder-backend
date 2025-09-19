@@ -72,6 +72,10 @@
   },
   "devDependencies": {
     "@babel/core": "^7.20.0",
+    "@babel/plugin-transform-arrow-functions": "^7.27.1",
+    "@babel/plugin-transform-block-scoping": "^7.28.4",
+    "@babel/plugin-transform-classes": "^7.28.4",
+    "@babel/plugin-transform-template-literals": "^7.27.1",
     "@babel/preset-typescript": "^7.27.1",
     "@testing-library/jest-native": "^5.4.3",
     "@testing-library/react-native": "^13.3.3",
