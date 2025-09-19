@@ -29,13 +29,13 @@ class UserService {
 
     // Create user
     const query = `
-      INSERT INTO users (email, password, full_name, username, is_admin, created_at)
-      VALUES ($1, $2, $3, $4, $5, NOW())
-      RETURNING id, email, full_name, username, is_admin, created_at
+      INSERT INTO users (email, password_hash, full_name, username, role, created_at)
+      VALUES ($1, $2, $3, $4, 'user', NOW())
+      RETURNING id, email, full_name, username, role, created_at
     `;
 
     return new Promise((resolve, reject) => {
-      this.db.query(query, [email, hashedPassword, full_name, username, false], (err, result) => {
+      this.db.query(query, [email, hashedPassword, full_name, username], (err, result) => {
         if (err) {
           logger.error('Error creating user', { error: err.message, email });
           reject(err);
@@ -105,7 +105,7 @@ class UserService {
       throw new ValidationError('Invalid email or password');
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
+    const isValidPassword = await bcrypt.compare(password, user.password_hash);
     if (!isValidPassword) {
       throw new ValidationError('Invalid email or password');
     }
@@ -172,14 +172,14 @@ class UserService {
   async changePassword(userId, currentPassword, newPassword) {
     const user = await this.getUserById(userId);
     
-    const isValidPassword = await bcrypt.compare(currentPassword, user.password);
+    const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
     if (!isValidPassword) {
       throw new ValidationError('Current password is incorrect');
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    const query = 'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2';
+    const query = 'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2';
 
     return new Promise((resolve, reject) => {
       this.db.query(query, [hashedPassword, userId], (err, _result) => {
@@ -214,7 +214,7 @@ class UserService {
   async getAllUsers(page = 1, limit = 10) {
     const offset = (page - 1) * limit;
     const query = `
-      SELECT id, email, full_name, username, is_admin, created_at, last_login
+      SELECT id, email, full_name, username, role, created_at, last_login
       FROM users 
       ORDER BY created_at DESC
       LIMIT $1 OFFSET $2
@@ -256,7 +256,7 @@ class UserService {
   async searchUsers(query, page = 1, limit = 10) {
     const offset = (page - 1) * limit;
     const searchQuery = `
-      SELECT id, email, full_name, username, is_admin, created_at
+      SELECT id, email, full_name, username, role, created_at
       FROM users 
       WHERE full_name ILIKE $1 OR username ILIKE $1 OR email ILIKE $1
       ORDER BY full_name ASC

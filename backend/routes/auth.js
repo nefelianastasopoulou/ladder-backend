@@ -20,7 +20,7 @@ const router = express.Router();
  */
 router.post('/register', validate(schemas.user.signup), async (req, res) => {
   try {
-    const { email, password_hash, full_name, username } = req.body;
+    const { email, password, full_name, username } = req.body;
 
     // Check if user already exists
     const existingUser = await db.query(
@@ -32,9 +32,9 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
       return sendErrorResponse(res, 409, 'User with this email or username already exists');
     }
 
-    // Hash password_hash
+    // Hash password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(password_hash, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user
     const newUser = await db.query(
@@ -56,14 +56,14 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
       ip: req.ip
     });
 
-    sendSuccessResponse(res, 201, 'User registered successfully', {
+    res.status(201).json({
       user: {
         id: user.id,
         email: user.email,
         username: user.username,
-        fullName: user.full_name,
+        full_name: user.full_name,
         role: user.role,
-        createdAt: user.created_at
+        created_at: user.created_at
       },
       token
     });
@@ -109,8 +109,8 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
       return sendErrorResponse(res, 401, 'Account is inactive');
     }
 
-    // Verify password_hash
-    const isValidPassword = await bcrypt.compare(password_hash, userData.password_hash);
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, userData.password_hash);
 
     if (!isValidPassword) {
       logger.warn('Login attempt with invalid password_hash', {
@@ -118,7 +118,7 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
         email: userData.email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password_hash');
+      return sendErrorResponse(res, 401, 'Invalid email or password');
     }
 
     // Generate JWT token
@@ -131,14 +131,14 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
       ip: req.ip
     });
 
-    sendSuccessResponse(res, 200, 'Login successful', {
+    res.status(200).json({
       user: {
         id: userData.id,
         email: userData.email,
         username: userData.username,
-        fullName: userData.full_name,
+        full_name: userData.full_name,
         role: userData.role,
-        createdAt: userData.created_at
+        created_at: userData.created_at
       },
       token
     });
@@ -173,15 +173,15 @@ router.get('/me', async (req, res) => {
 
 /**
  * Change Password
- * PUT /api/auth/change-password_hash
+ * PUT /api/auth/change-password
  */
-router.put('/change-password_hash', validate(schemas.user.changePassword), async (req, res) => {
+router.put('/change-password', validate(schemas.user.changePassword), async (req, res) => {
   try {
     if (!req.user) {
       return sendErrorResponse(res, 401, 'Authentication required');
     }
 
-    const { current_password_hash, new_password_hash } = req.body;
+    const { current_password, new_password } = req.body;
 
     // Get current password_hash hash
     const user = await db.query(
@@ -193,22 +193,22 @@ router.put('/change-password_hash', validate(schemas.user.changePassword), async
       return sendErrorResponse(res, 404, 'User not found');
     }
 
-    // Verify current password_hash
-    const isValidPassword = await bcrypt.compare(current_password_hash, user.rows[0].password_hash);
+    // Verify current password
+    const isValidPassword = await bcrypt.compare(current_password, user.rows[0].password_hash);
 
     if (!isValidPassword) {
       logger.warn('Password change attempt with invalid current password_hash', {
         userId: req.user.id,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Current password_hash is incorrect');
+      return sendErrorResponse(res, 401, 'Current password is incorrect');
     }
 
-    // Hash new password_hash
+    // Hash new password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(new_password_hash, saltRounds);
+    const hashedPassword = await bcrypt.hash(new_password, saltRounds);
 
-    // Update password_hash
+    // Update password
     await db.query(
       'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [hashedPassword, req.user.id]
@@ -298,7 +298,7 @@ router.post('/logout', async (req, res) => {
 // Frontend compatibility aliases
 router.post('/signup', validate(schemas.user.signup), async (req, res) => {
   try {
-    const { email, password_hash, full_name, username } = req.body;
+    const { email, password, full_name, username } = req.body;
 
     // Check if user already exists
     const existingUser = await db.query(
@@ -310,9 +310,9 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
       return sendErrorResponse(res, 409, 'User with this email or username already exists');
     }
 
-    // Hash password_hash
+    // Hash password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(password_hash, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     // Create user
     const newUser = await db.query(
@@ -334,7 +334,7 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
       ip: req.ip
     });
 
-    sendSuccessResponse(res, 201, 'User registered successfully', {
+    res.status(201).json({
       user: {
         id: user.id,
         email: user.email,
@@ -382,8 +382,8 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
       return sendErrorResponse(res, 401, 'Account is inactive');
     }
 
-    // Verify password_hash
-    const isValidPassword = await bcrypt.compare(password_hash, userData.password_hash);
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, userData.password_hash);
 
     if (!isValidPassword) {
       logger.warn('Login attempt with invalid password_hash', {
@@ -391,7 +391,7 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
         email: userData.email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password_hash');
+      return sendErrorResponse(res, 401, 'Invalid email or password');
     }
 
     // Generate JWT token
@@ -404,7 +404,7 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
       ip: req.ip
     });
 
-    sendSuccessResponse(res, 200, 'Login successful', {
+    res.status(200).json({
       user: {
         id: userData.id,
         email: userData.email,
@@ -423,7 +423,7 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
 });
 
 // Forgot password_hash
-router.post('/forgot-password_hash', async (req, res) => {
+router.post('/forgot-password', async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -470,12 +470,12 @@ router.post('/forgot-password_hash', async (req, res) => {
 });
 
 // Reset password_hash
-router.post('/reset-password_hash', async (req, res) => {
+router.post('/reset-password', async (req, res) => {
   try {
-    const { token, new_password_hash } = req.body;
+    const { token, new_password } = req.body;
 
-    if (!token || !new_password_hash) {
-      return sendErrorResponse(res, 400, 'Token and new password_hash are required');
+    if (!token || !new_password) {
+      return sendErrorResponse(res, 400, 'Token and new password are required');
     }
 
     // Find valid reset token
@@ -488,11 +488,11 @@ router.post('/reset-password_hash', async (req, res) => {
       return sendErrorResponse(res, 400, 'Invalid or expired reset token');
     }
 
-    // Hash new password_hash
+    // Hash new password
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(new_password_hash, saltRounds);
+    const hashedPassword = await bcrypt.hash(new_password, saltRounds);
 
-    // Update password_hash
+    // Update password
     await db.query(
       'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [hashedPassword, resetToken.rows[0].user_id]
@@ -513,7 +513,7 @@ router.post('/reset-password_hash', async (req, res) => {
 
   } catch (error) {
     logger.error('Password reset failed:', error);
-    sendErrorResponse(res, 500, 'Failed to reset password_hash');
+    sendErrorResponse(res, 500, 'Failed to reset password');
   }
 });
 
@@ -609,9 +609,9 @@ router.post('/verify-email-change', async (req, res) => {
 // Delete account
 router.delete('/delete-account', authenticateToken, async (req, res) => {
   try {
-    const { password_hash } = req.body;
+    const { password } = req.body;
 
-    if (!password_hash) {
+    if (!password) {
       return sendErrorResponse(res, 400, 'Password is required to delete account');
     }
 
@@ -625,10 +625,10 @@ router.delete('/delete-account', authenticateToken, async (req, res) => {
       return sendErrorResponse(res, 404, 'User not found');
     }
 
-    const isValidPassword = await bcrypt.compare(password_hash, user.rows[0].password_hash);
+    const isValidPassword = await bcrypt.compare(password, user.rows[0].password_hash);
 
     if (!isValidPassword) {
-      return sendErrorResponse(res, 401, 'Invalid password_hash');
+      return sendErrorResponse(res, 401, 'Invalid password');
     }
 
     // Delete user (cascade will handle related records)
@@ -671,7 +671,7 @@ router.post('/make-admin', authenticateToken, requireAdmin, async (req, res) => 
 
     // Make user admin
     await db.query(
-      'UPDATE users SET is_admin = true, role = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2',
       ['admin', user_id]
     );
 
@@ -686,7 +686,6 @@ router.post('/make-admin', authenticateToken, requireAdmin, async (req, res) => 
         id: user.rows[0].id,
         username: user.rows[0].username,
         email: user.rows[0].email,
-        is_admin: true,
         role: 'admin'
       }
     });

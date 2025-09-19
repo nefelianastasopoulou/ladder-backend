@@ -27,21 +27,21 @@ const sampleData = {
       username: 'admin',
       full_name: 'Admin User',
       password: '$2a$12$rcOa7RmocH0hbG0u9N76pOuRGw0z59SZ06JTyQtEjcQaXjnFAsjM.', // LadderAdmino3qbiaajanj!2024
-      is_admin: true
+      role: 'admin'
     },
     {
       email: 'john@example.com',
       username: 'john_doe',
       full_name: 'John Doe',
       password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
-      is_admin: false
+      role: 'user'
     },
     {
       email: 'jane@example.com',
       username: 'jane_smith',
       full_name: 'Jane Smith',
       password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
-      is_admin: false
+      role: 'user'
     }
   ],
   
@@ -173,8 +173,8 @@ const seedUsers = async () => {
     
     for (const user of sampleData.users) {
       await pool.query(
-        'INSERT INTO users (email, username, full_name, password, is_admin) VALUES ($1, $2, $3, $4, $5)',
-        [user.email, user.username, user.full_name, user.password, user.is_admin]
+        'INSERT INTO users (email, username, full_name, password_hash, role) VALUES ($1, $2, $3, $4, $5)',
+        [user.email, user.username, user.full_name, user.password, user.role]
       );
     }
     

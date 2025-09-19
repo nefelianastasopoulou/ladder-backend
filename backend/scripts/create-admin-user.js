@@ -36,7 +36,7 @@ const createAdminUser = async () => {
       
       // Update the existing user's password
       await pool.query(
-        'UPDATE users SET password = $1, updated_at = NOW() WHERE email = $2 OR username = $3',
+        'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE email = $2 OR username = $3',
         [hashedPassword, email, username]
       );
       
@@ -50,9 +50,9 @@ const createAdminUser = async () => {
       
       // Create user
       const newUser = await pool.query(
-        `INSERT INTO users (email, password, full_name, username, role, is_active, is_admin, created_at)
-         VALUES ($1, $2, $3, $4, 'admin', true, true, NOW())
-         RETURNING id, email, username, full_name, role, is_admin, created_at`,
+        `INSERT INTO users (email, password_hash, full_name, username, role, is_active, created_at)
+         VALUES ($1, $2, $3, $4, 'admin', true, NOW())
+         RETURNING id, email, username, full_name, role, created_at`,
         [email, hashedPassword, fullName, username]
       );
       
@@ -63,7 +63,7 @@ const createAdminUser = async () => {
         username: user.username,
         fullName: user.full_name,
         role: user.role,
-        isAdmin: user.is_admin
+        isAdmin: user.role === 'admin'
       });
     }
     

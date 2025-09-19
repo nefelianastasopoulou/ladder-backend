@@ -13,7 +13,7 @@ router.get('/users', authenticateToken, requireAdmin, (req, res) => {
   let query = `
     SELECT 
       id, username, email, full_name, bio, location, field, avatar_url,
-      is_verified, is_admin, created_at, updated_at
+      is_verified, role, created_at, updated_at
     FROM users
   `;
   let countQuery = 'SELECT COUNT(*) as total FROM users';
@@ -182,9 +182,9 @@ router.post('/users/:userId/make-admin', authenticateToken, requireAdmin, (req, 
 
   const query = `
     UPDATE users 
-    SET is_admin = true, updated_at = NOW()
+    SET role = 'admin', updated_at = NOW()
     WHERE id = $1
-    RETURNING id, username, email, is_admin
+    RETURNING id, username, email, role
   `;
 
   db.query(query, [userId], (err, result) => {
@@ -216,9 +216,9 @@ router.post('/users/:userId/remove-admin', authenticateToken, requireAdmin, (req
 
   const query = `
     UPDATE users 
-    SET is_admin = false, updated_at = NOW()
+    SET role = 'user', updated_at = NOW()
     WHERE id = $1
-    RETURNING id, username, email, is_admin
+    RETURNING id, username, email, role
   `;
 
   db.query(query, [userId], (err, result) => {
@@ -580,7 +580,7 @@ router.get('/stats', authenticateToken, requireAdmin, (req, res) => {
       const userQuery = `
         SELECT 
           COUNT(*) as total_users,
-          COUNT(CASE WHEN is_admin = true THEN 1 END) as admin_users,
+          COUNT(CASE WHEN role = 'admin' THEN 1 END) as admin_users,
           COUNT(CASE WHEN is_verified = true THEN 1 END) as verified_users,
           COUNT(CASE WHEN created_at >= NOW() - INTERVAL '30 days' THEN 1 END) as new_users_30d
         FROM users

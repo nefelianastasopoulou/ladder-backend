@@ -35,7 +35,7 @@ const authenticateToken = async (req, res, next) => {
 
     // Get user from database
     const user = await db.query(
-      'SELECT id, email, username, full_name, role, is_active, is_admin, created_at FROM users WHERE id = $1',
+      'SELECT id, email, username, full_name, role, is_active, created_at FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -67,8 +67,8 @@ const authenticateToken = async (req, res, next) => {
       email: userData.email,
       username: userData.username,
       fullName: userData.full_name,
-      role: userData.role || (userData.is_admin ? 'admin' : 'user'),
-      isAdmin: userData.is_admin || false,
+      role: userData.role || 'user',
+      isAdmin: userData.role === 'admin',
       createdAt: userData.created_at
     };
 
@@ -238,7 +238,7 @@ const optionalAuth = async (req, res, next) => {
     });
 
     const user = await db.query(
-      'SELECT id, email, username, full_name, role, is_active, is_admin FROM users WHERE id = $1',
+      'SELECT id, email, username, full_name, role, is_active FROM users WHERE id = $1',
       [decoded.userId]
     );
 
@@ -248,8 +248,8 @@ const optionalAuth = async (req, res, next) => {
         email: user.rows[0].email,
         username: user.rows[0].username,
         fullName: user.rows[0].full_name,
-        role: user.rows[0].role || (user.rows[0].is_admin ? 'admin' : 'user'),
-        isAdmin: user.rows[0].is_admin || false
+        role: user.rows[0].role || 'user',
+        isAdmin: user.rows[0].role === 'admin'
       };
     } else {
       req.user = null;

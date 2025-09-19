@@ -8,7 +8,7 @@ class QueryOptimizer {
   static async getUsersWithProfiles(userIds = null, limit = 50, offset = 0) {
     const query = `
       SELECT 
-        u.id, u.email, u.username, u.full_name, u.is_admin, u.created_at,
+        u.id, u.email, u.username, u.full_name, u.role, u.created_at,
         up.bio, up.location, up.field, up.avatar_url,
         us.photo_upload_restriction, us.allowed_photo_sources
       FROM users u
