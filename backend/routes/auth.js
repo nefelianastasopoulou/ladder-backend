@@ -81,7 +81,7 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
  */
 router.post('/login', validate(schemas.user.signin), async (req, res) => {
   try {
-    const { email, password_hash } = req.body;
+    const { email, password } = req.body;
 
     // Find user by email OR username
     const user = await db.query(
@@ -94,7 +94,7 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
         email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email/username or password_hash');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password');
     }
 
     const userData = user.rows[0];
@@ -354,7 +354,7 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
 
 router.post('/signin', validate(schemas.user.signin), async (req, res) => {
   try {
-    const { email, password_hash } = req.body;
+    const { email, password } = req.body;
 
     // Find user by email OR username
     const user = await db.query(
@@ -367,7 +367,7 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
         email: email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email/username or password_hash');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password');
     }
 
     const userData = user.rows[0];
