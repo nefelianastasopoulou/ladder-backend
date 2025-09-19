@@ -23,7 +23,7 @@ const schemas = {
     }),
     
     signin: Joi.object({
-      email: Joi.string().email().required(),
+      email: Joi.string().required(), // Allow either email or username
       password: Joi.string().required()
     }),
     
