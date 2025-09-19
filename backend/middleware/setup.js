@@ -23,14 +23,27 @@ const corsOptions = {
       ? config.ALLOWED_ORIGINS 
       : config.ALLOWED_ORIGINS.split(',').map(o => o.trim());
     
+    // Check for exact match first
     if (allowedOrigins.includes(origin)) {
       console.log(`🌐 CORS: Allowing origin: ${origin}`);
-      callback(null, true);
-    } else {
-      console.log(`🚫 CORS: Blocking origin: ${origin}`);
-      console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      return callback(null, true);
     }
+    
+    // Check for localhost with any port (for development)
+    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+      console.log(`🌐 CORS: Allowing localhost origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // Check for Expo Go development URLs
+    if (origin.startsWith('exp://') && (origin.includes('localhost') || origin.includes('192.168.'))) {
+      console.log(`🌐 CORS: Allowing Expo Go origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    console.log(`🚫 CORS: Blocking origin: ${origin}`);
+    console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
   },
   credentials: true,
   optionsSuccessStatus: 200
