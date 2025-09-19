@@ -8,6 +8,8 @@ module.exports = function (api) {
       '@babel/plugin-transform-arrow-functions',
       '@babel/plugin-transform-block-scoping',
       '@babel/plugin-transform-classes',
+      '@babel/plugin-transform-class-properties',
+      '@babel/plugin-transform-private-methods',
     ],
   };
 };
