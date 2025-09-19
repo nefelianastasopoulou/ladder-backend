@@ -26,7 +26,7 @@ const sampleData = {
       email: 'admin@ladder.com',
       username: 'admin',
       full_name: 'Admin User',
-      password: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password
+      password: '$2a$12$rcOa7RmocH0hbG0u9N76pOuRGw0z59SZ06JTyQtEjcQaXjnFAsjM.', // LadderAdmino3qbiaajanj!2024
       is_admin: true
     },
     {

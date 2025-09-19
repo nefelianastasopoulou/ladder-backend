@@ -251,7 +251,7 @@ export const authAPI = {
   signIn: async (emailOrUsername: string, password: string): Promise<AuthResponse> => {
     const response = await apiRequest<AuthResponse>('/auth/signin', {
       method: 'POST',
-      body: JSON.stringify({ email: emailOrUsername, username: emailOrUsername, password }),
+      body: JSON.stringify({ email: emailOrUsername, password }),
     });
     
     // Store the token
