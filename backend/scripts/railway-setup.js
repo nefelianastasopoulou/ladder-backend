@@ -6,6 +6,7 @@
  */
 
 const { runMigrations } = require('./run-migration.js');
+const { seedDatabase } = require('./seed-database.js');
 const logger = require('../utils/logger');
 
 const setupRailway = async () => {
@@ -34,6 +35,11 @@ const setupRailway = async () => {
     console.log('🔄 Running database migrations...');
     await runMigrations();
     console.log('✅ Database migrations completed');
+    
+    // Seed database with initial data
+    console.log('🌱 Seeding database with initial data...');
+    await seedDatabase();
+    console.log('✅ Database seeding completed');
     
     // Additional Railway-specific setup
     console.log('🔧 Railway setup completed successfully!');
