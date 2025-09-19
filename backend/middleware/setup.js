@@ -30,7 +30,8 @@ const corsOptions = {
     }
     
     // Check for localhost with any port (for development)
-    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:')) {
+    if (origin.startsWith('http://localhost:') || origin.startsWith('https://localhost:') || 
+        origin.startsWith('http://127.0.0.1:') || origin.startsWith('https://127.0.0.1:')) {
       console.log(`🌐 CORS: Allowing localhost origin: ${origin}`);
       return callback(null, true);
     }
@@ -38,6 +39,12 @@ const corsOptions = {
     // Check for Expo Go development URLs
     if (origin.startsWith('exp://') && (origin.includes('localhost') || origin.includes('192.168.'))) {
       console.log(`🌐 CORS: Allowing Expo Go origin: ${origin}`);
+      return callback(null, true);
+    }
+    
+    // Check for Expo web URLs
+    if (origin.includes('expo.dev') || origin.includes('expo.io')) {
+      console.log(`🌐 CORS: Allowing Expo web origin: ${origin}`);
       return callback(null, true);
     }
     

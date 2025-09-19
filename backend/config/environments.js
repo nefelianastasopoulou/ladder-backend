@@ -96,8 +96,8 @@ const environments = {
     RATE_LIMIT_WINDOW_MS: 900000, // 15 minutes
     RATE_LIMIT_MAX_REQUESTS: 100,
     
-    // CORS (specific origins for production - mobile apps don't send origin)
-    ALLOWED_ORIGINS: 'https://ladder-backend-production.up.railway.app',
+    // CORS (specific origins for production - includes Expo web)
+    ALLOWED_ORIGINS: 'https://ladder-backend-production.up.railway.app,https://expo.dev,https://*.expo.dev,https://localhost:*,https://127.0.0.1:*',
     
     // Security (strict for production)
     TRUST_PROXY: true,

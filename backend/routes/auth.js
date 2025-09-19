@@ -20,7 +20,7 @@ const router = express.Router();
  */
 router.post('/register', validate(schemas.user.signup), async (req, res) => {
   try {
-    const { email, password, full_name, username } = req.body;
+    const { email, password_hash, full_name, username } = req.body;
 
     // Check if user already exists
     const existingUser = await db.query(
@@ -32,13 +32,13 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
       return sendErrorResponse(res, 409, 'User with this email or username already exists');
     }
 
-    // Hash password
+    // Hash password_hash
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password_hash, saltRounds);
 
     // Create user
     const newUser = await db.query(
-      `INSERT INTO users (email, password, full_name, username, role, is_active, created_at)
+      `INSERT INTO users (email, password_hash, full_name, username, role, is_active, created_at)
        VALUES ($1, $2, $3, $4, 'user', true, NOW())
        RETURNING id, email, username, full_name, role, created_at`,
       [email, hashedPassword, full_name, username]
@@ -81,11 +81,11 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
  */
 router.post('/login', validate(schemas.user.signin), async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password_hash } = req.body;
 
     // Find user by email OR username
     const user = await db.query(
-      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
+      'SELECT id, email, username, full_name, password_hash, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
       [email]
     );
 
@@ -94,7 +94,7 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
         email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email/username or password');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password_hash');
     }
 
     const userData = user.rows[0];
@@ -109,16 +109,16 @@ router.post('/login', validate(schemas.user.signin), async (req, res) => {
       return sendErrorResponse(res, 401, 'Account is inactive');
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, userData.password);
+    // Verify password_hash
+    const isValidPassword = await bcrypt.compare(password_hash, userData.password_hash);
 
     if (!isValidPassword) {
-      logger.warn('Login attempt with invalid password', {
+      logger.warn('Login attempt with invalid password_hash', {
         userId: userData.id,
         email: userData.email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password');
+      return sendErrorResponse(res, 401, 'Invalid email or password_hash');
     }
 
     // Generate JWT token
@@ -173,19 +173,19 @@ router.get('/me', async (req, res) => {
 
 /**
  * Change Password
- * PUT /api/auth/change-password
+ * PUT /api/auth/change-password_hash
  */
-router.put('/change-password', validate(schemas.user.changePassword), async (req, res) => {
+router.put('/change-password_hash', validate(schemas.user.changePassword), async (req, res) => {
   try {
     if (!req.user) {
       return sendErrorResponse(res, 401, 'Authentication required');
     }
 
-    const { current_password, new_password } = req.body;
+    const { current_password_hash, new_password_hash } = req.body;
 
-    // Get current password hash
+    // Get current password_hash hash
     const user = await db.query(
-      'SELECT password FROM users WHERE id = $1',
+      'SELECT password_hash FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -193,28 +193,28 @@ router.put('/change-password', validate(schemas.user.changePassword), async (req
       return sendErrorResponse(res, 404, 'User not found');
     }
 
-    // Verify current password
-    const isValidPassword = await bcrypt.compare(current_password, user.rows[0].password);
+    // Verify current password_hash
+    const isValidPassword = await bcrypt.compare(current_password_hash, user.rows[0].password_hash);
 
     if (!isValidPassword) {
-      logger.warn('Password change attempt with invalid current password', {
+      logger.warn('Password change attempt with invalid current password_hash', {
         userId: req.user.id,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Current password is incorrect');
+      return sendErrorResponse(res, 401, 'Current password_hash is incorrect');
     }
 
-    // Hash new password
+    // Hash new password_hash
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(new_password, saltRounds);
+    const hashedPassword = await bcrypt.hash(new_password_hash, saltRounds);
 
-    // Update password
+    // Update password_hash
     await db.query(
-      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [hashedPassword, req.user.id]
     );
 
-    logger.info('User changed password successfully', {
+    logger.info('User changed password_hash successfully', {
       userId: req.user.id,
       email: req.user.email,
       ip: req.ip
@@ -298,7 +298,7 @@ router.post('/logout', async (req, res) => {
 // Frontend compatibility aliases
 router.post('/signup', validate(schemas.user.signup), async (req, res) => {
   try {
-    const { email, password, full_name, username } = req.body;
+    const { email, password_hash, full_name, username } = req.body;
 
     // Check if user already exists
     const existingUser = await db.query(
@@ -310,13 +310,13 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
       return sendErrorResponse(res, 409, 'User with this email or username already exists');
     }
 
-    // Hash password
+    // Hash password_hash
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password_hash, saltRounds);
 
     // Create user
     const newUser = await db.query(
-      `INSERT INTO users (email, password, full_name, username, role, is_active, created_at)
+      `INSERT INTO users (email, password_hash, full_name, username, role, is_active, created_at)
        VALUES ($1, $2, $3, $4, 'user', true, NOW())
        RETURNING id, email, username, full_name, role, created_at`,
       [email, hashedPassword, full_name, username]
@@ -354,11 +354,11 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
 
 router.post('/signin', validate(schemas.user.signin), async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password_hash } = req.body;
 
     // Find user by email OR username
     const user = await db.query(
-      'SELECT id, email, username, full_name, password, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
+      'SELECT id, email, username, full_name, password_hash, role, is_active, created_at FROM users WHERE email = $1 OR username = $1',
       [email]
     );
 
@@ -367,7 +367,7 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
         email: email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email/username or password');
+      return sendErrorResponse(res, 401, 'Invalid email/username or password_hash');
     }
 
     const userData = user.rows[0];
@@ -382,16 +382,16 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
       return sendErrorResponse(res, 401, 'Account is inactive');
     }
 
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, userData.password);
+    // Verify password_hash
+    const isValidPassword = await bcrypt.compare(password_hash, userData.password_hash);
 
     if (!isValidPassword) {
-      logger.warn('Login attempt with invalid password', {
+      logger.warn('Login attempt with invalid password_hash', {
         userId: userData.id,
         email: userData.email,
         ip: req.ip
       });
-      return sendErrorResponse(res, 401, 'Invalid email or password');
+      return sendErrorResponse(res, 401, 'Invalid email or password_hash');
     }
 
     // Generate JWT token
@@ -422,8 +422,8 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
   }
 });
 
-// Forgot password
-router.post('/forgot-password', async (req, res) => {
+// Forgot password_hash
+router.post('/forgot-password_hash', async (req, res) => {
   try {
     const { email } = req.body;
 
@@ -439,7 +439,7 @@ router.post('/forgot-password', async (req, res) => {
 
     if (user.rows.length === 0) {
       // Don't reveal if email exists or not for security
-      return sendSuccessResponse(res, 200, 'If the email exists, a password reset link has been sent');
+      return sendSuccessResponse(res, 200, 'If the email exists, a password_hash reset link has been sent');
     }
 
     // Generate reset token (in a real app, you'd send an email)
@@ -448,7 +448,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Store reset token
     await db.query(
-      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      'INSERT INTO password_hash_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.rows[0].id, resetToken, expiresAt]
     );
 
@@ -459,28 +459,28 @@ router.post('/forgot-password', async (req, res) => {
     });
 
     // In a real app, you would send an email here
-    sendSuccessResponse(res, 200, 'If the email exists, a password reset link has been sent', {
+    sendSuccessResponse(res, 200, 'If the email exists, a password_hash reset link has been sent', {
       resetToken: resetToken // Only for development/testing
     });
 
   } catch (error) {
-    logger.error('Forgot password failed:', error);
-    sendErrorResponse(res, 500, 'Failed to process password reset request');
+    logger.error('Forgot password_hash failed:', error);
+    sendErrorResponse(res, 500, 'Failed to process password_hash reset request');
   }
 });
 
-// Reset password
-router.post('/reset-password', async (req, res) => {
+// Reset password_hash
+router.post('/reset-password_hash', async (req, res) => {
   try {
-    const { token, new_password } = req.body;
+    const { token, new_password_hash } = req.body;
 
-    if (!token || !new_password) {
-      return sendErrorResponse(res, 400, 'Token and new password are required');
+    if (!token || !new_password_hash) {
+      return sendErrorResponse(res, 400, 'Token and new password_hash are required');
     }
 
     // Find valid reset token
     const resetToken = await db.query(
-      'SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
+      'SELECT user_id, expires_at FROM password_hash_reset_tokens WHERE token = $1 AND expires_at > NOW()',
       [token]
     );
 
@@ -488,19 +488,19 @@ router.post('/reset-password', async (req, res) => {
       return sendErrorResponse(res, 400, 'Invalid or expired reset token');
     }
 
-    // Hash new password
+    // Hash new password_hash
     const saltRounds = parseInt(process.env.BCRYPT_ROUNDS) || 12;
-    const hashedPassword = await bcrypt.hash(new_password, saltRounds);
+    const hashedPassword = await bcrypt.hash(new_password_hash, saltRounds);
 
-    // Update password
+    // Update password_hash
     await db.query(
-      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2',
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2',
       [hashedPassword, resetToken.rows[0].user_id]
     );
 
     // Delete used reset token
     await db.query(
-      'DELETE FROM password_reset_tokens WHERE token = $1',
+      'DELETE FROM password_hash_reset_tokens WHERE token = $1',
       [token]
     );
 
@@ -513,7 +513,7 @@ router.post('/reset-password', async (req, res) => {
 
   } catch (error) {
     logger.error('Password reset failed:', error);
-    sendErrorResponse(res, 500, 'Failed to reset password');
+    sendErrorResponse(res, 500, 'Failed to reset password_hash');
   }
 });
 
@@ -542,7 +542,7 @@ router.put('/change-email', authenticateToken, async (req, res) => {
 
     // Store email change request
     await db.query(
-      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      'INSERT INTO password_hash_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [req.user.id, changeToken, expiresAt]
     );
 
@@ -579,7 +579,7 @@ router.post('/verify-email-change', async (req, res) => {
 
     // Find valid change token
     const changeToken = await db.query(
-      'SELECT user_id FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
+      'SELECT user_id FROM password_hash_reset_tokens WHERE token = $1 AND expires_at > NOW()',
       [token]
     );
 
@@ -589,7 +589,7 @@ router.post('/verify-email-change', async (req, res) => {
 
     // Delete used token
     await db.query(
-      'DELETE FROM password_reset_tokens WHERE token = $1',
+      'DELETE FROM password_hash_reset_tokens WHERE token = $1',
       [token]
     );
 
@@ -609,15 +609,15 @@ router.post('/verify-email-change', async (req, res) => {
 // Delete account
 router.delete('/delete-account', authenticateToken, async (req, res) => {
   try {
-    const { password } = req.body;
+    const { password_hash } = req.body;
 
-    if (!password) {
+    if (!password_hash) {
       return sendErrorResponse(res, 400, 'Password is required to delete account');
     }
 
-    // Verify password
+    // Verify password_hash
     const user = await db.query(
-      'SELECT password FROM users WHERE id = $1',
+      'SELECT password_hash FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -625,10 +625,10 @@ router.delete('/delete-account', authenticateToken, async (req, res) => {
       return sendErrorResponse(res, 404, 'User not found');
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.rows[0].password);
+    const isValidPassword = await bcrypt.compare(password_hash, user.rows[0].password_hash);
 
     if (!isValidPassword) {
-      return sendErrorResponse(res, 401, 'Invalid password');
+      return sendErrorResponse(res, 401, 'Invalid password_hash');
     }
 
     // Delete user (cascade will handle related records)
