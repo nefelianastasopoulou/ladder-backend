@@ -41,7 +41,7 @@ export default function LoginScreen() {
         name: response.user.full_name || 'User',
         username: response.user.username || '',
         email: response.user.email || '',
-        is_admin: response.user.is_admin || false,
+        is_admin: response.user.role === 'admin' || false,
         full_name: response.user.full_name || 'User',
         created_at: response.user.created_at || new Date().toISOString(),
         updated_at: response.user.updated_at || new Date().toISOString()
