@@ -4,5 +4,7 @@
   "minify": false,
   "https": false,
   "hostType": "lan",
-  "lanType": "ip"
+  "lanType": "ip",
+  "scheme": null,
+  "devClient": false
 }

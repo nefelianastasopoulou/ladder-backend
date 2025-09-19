@@ -123,7 +123,7 @@ try {
   const fs = require('fs');
   const expoGoConfig = fs.readFileSync(path.join(__dirname, '..', '.env.expo-go'), 'utf8');
   
-  if (expoGoConfig.includes('your-railway-app-name')) {
+  if (expoGoConfig.includes('your-railway-app-name') || expoGoConfig.includes('ladder-backend-production')) {
     console.log('   ⚠️  Expo Go config needs Railway URL update');
     console.log('      Please update EXPO_PUBLIC_API_URL in .env.expo-go');
   } else {

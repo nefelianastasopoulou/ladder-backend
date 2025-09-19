@@ -117,7 +117,7 @@ const startServer = () => {
   startMemoryMonitoring(config.NODE_ENV);
   
   // Start server
-  const server = app.listen(config.PORT, () => {
+  const server = app.listen(config.PORT, '0.0.0.0', () => {
     logger.info(`🚀 Server running on port ${config.PORT}`);
     logger.info(`📊 Environment: ${config.NODE_ENV}`);
     logger.info(`🔒 Trust Proxy: ${config.TRUST_PROXY}`);

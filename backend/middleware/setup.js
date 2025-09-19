@@ -6,13 +6,30 @@ const config = require('../config/environment');
 // CORS configuration
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
+    // Allow requests with no origin (like mobile apps, Expo Go, or curl requests)
+    if (!origin) {
+      console.log('🌐 CORS: Allowing request with no origin (mobile app)');
+      return callback(null, true);
+    }
     
-    if (config.ALLOWED_ORIGINS.includes(origin)) {
+    // Handle wildcard for development
+    if (config.ALLOWED_ORIGINS === '*' || config.ALLOWED_ORIGINS.includes('*')) {
+      console.log('🌐 CORS: Allowing all origins (wildcard)');
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    const allowedOrigins = Array.isArray(config.ALLOWED_ORIGINS) 
+      ? config.ALLOWED_ORIGINS 
+      : config.ALLOWED_ORIGINS.split(',').map(o => o.trim());
+    
+    if (allowedOrigins.includes(origin)) {
+      console.log(`🌐 CORS: Allowing origin: ${origin}`);
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      console.log(`🚫 CORS: Blocking origin: ${origin}`);
+      console.log(`📋 Allowed origins: ${allowedOrigins.join(', ')}`);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
     }
   },
   credentials: true,

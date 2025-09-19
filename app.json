@@ -8,6 +8,7 @@
     "scheme": "ladder",
     "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android", "web"],
+    "main": "expo-router/entry",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nefeli.ladder",

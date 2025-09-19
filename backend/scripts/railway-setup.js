@@ -5,7 +5,7 @@
  * This script handles Railway-specific setup tasks including database initialization
  */
 
-const { runMigrations } = require('./run-migration');
+const { runMigrations } = require('./run-migration.js');
 const logger = require('../utils/logger');
 
 const setupRailway = async () => {
