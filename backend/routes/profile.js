@@ -12,7 +12,7 @@ router.get('/', authenticateToken, (req, res) => {
   const query = `
     SELECT 
       id, username, email, full_name, bio, location, field, 
-      avatar_url, created_at, updated_at, is_verified
+      avatar_url, created_at, updated_at, role, is_verified
     FROM users 
     WHERE id = $1
   `;
@@ -42,6 +42,7 @@ router.get('/', authenticateToken, (req, res) => {
         avatar_url: user.avatar_url,
         created_at: user.created_at,
         updated_at: user.updated_at,
+        role: user.role,
         is_verified: user.is_verified
       }
     });
@@ -115,7 +116,7 @@ router.put('/', authenticateToken, (req, res) => {
       UPDATE users 
       SET ${updateFields.join(', ')}
       WHERE id = $${paramCount}
-      RETURNING id, username, full_name, bio, location, field, avatar_url, created_at, updated_at, is_verified
+      RETURNING id, username, full_name, bio, location, field, avatar_url, created_at, updated_at, role, is_verified
     `;
 
     db.query(query, values, (err, result) => {
@@ -141,6 +142,7 @@ router.put('/', authenticateToken, (req, res) => {
           avatar_url: user.avatar_url,
           created_at: user.created_at,
           updated_at: user.updated_at,
+          role: user.role,
           is_verified: user.is_verified
         }
       });
@@ -155,7 +157,7 @@ router.get('/:userId', (req, res) => {
   const query = `
     SELECT 
       id, username, full_name, bio, location, field, 
-      avatar_url, created_at, is_verified
+      avatar_url, created_at, role, is_verified
     FROM users 
     WHERE id = $1
   `;
