@@ -4,28 +4,44 @@ const db = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const logger = require('../utils/logger');
+const { filterContentByPrivacy } = require('../utils/privacy');
 
-// Get all opportunities
-router.get('/', (req, res) => {
-  const query = `
-    SELECT 
-      o.id, o.title, o.description, o.category, o.location, o.field,
-      o.image_url, o.deadline, o.requirements, o.contact_info,
-      o.application_url, o.is_external_application, o.created_at, o.updated_at,
-      u.username as created_by_username, u.full_name as created_by_name
-    FROM opportunities o
-    LEFT JOIN users u ON o.created_by = u.id
-    ORDER BY o.created_at DESC
-  `;
+// Get all opportunities with privacy filtering
+router.get('/', authenticateToken, async (req, res) => {
+  const viewerId = req.user.id;
 
-  db.query(query, [], (err, result) => {
-    if (err) {
-      console.error('Error fetching opportunities:', err);
-      return res.status(500).json({ error: 'Failed to fetch opportunities' });
-    }
+  try {
+    const query = `
+      SELECT 
+        o.id, o.title, o.description, o.category, o.location, o.field,
+        o.image_url, o.deadline, o.requirements, o.contact_info,
+        o.application_url, o.is_external_application, o.created_at, o.updated_at,
+        o.created_by as author_id,
+        u.username as created_by_username, u.full_name as created_by_name
+      FROM opportunities o
+      LEFT JOIN users u ON o.created_by = u.id
+      ORDER BY o.created_at DESC
+    `;
 
-    res.json(result.rows);
-  });
+    db.query(query, [], async (err, result) => {
+      if (err) {
+        console.error('Error fetching opportunities:', err);
+        return res.status(500).json({ error: 'Failed to fetch opportunities' });
+      }
+
+      // Filter opportunities based on privacy settings
+      const filteredOpportunities = await filterContentByPrivacy(
+        result.rows, 
+        viewerId, 
+        'opportunities_on_profile_visibility'
+      );
+
+      res.json(filteredOpportunities);
+    });
+  } catch (error) {
+    console.error('Error in privacy filtering:', error);
+    res.status(500).json({ error: 'Failed to filter opportunities' });
+  }
 });
 
 // Get user's opportunities

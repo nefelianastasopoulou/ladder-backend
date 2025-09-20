@@ -8,7 +8,7 @@
     "scheme": "ladder",
     "userInterfaceStyle": "automatic",
     "platforms": ["ios", "android", "web"],
-    "main": "expo-router/entry",
+    "main": "App.tsx",
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.nefeli.ladder",
@@ -61,7 +61,6 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -72,11 +71,7 @@
         }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
     "extra": {
-      "router": {},
       "eas": {
         "projectId": "1a5b83af-f14f-4e56-93eb-38e9762a39d9"
       }

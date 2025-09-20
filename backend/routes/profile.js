@@ -4,6 +4,7 @@ const db = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const logger = require('../utils/logger');
+const { filterContentByPrivacy } = require('../utils/privacy');
 
 // Get user profile
 router.get('/', authenticateToken, (req, res) => {
@@ -199,6 +200,119 @@ router.get('/:userId', (req, res) => {
     const user = result.rows[0];
     res.json({ user });
   });
+});
+
+// Get user's posts with privacy filtering
+router.get('/:userId/posts', authenticateToken, async (req, res) => {
+  const targetUserId = req.params.userId;
+  const viewerId = req.user.id;
+
+  try {
+    const query = `
+      SELECT 
+        p.id, p.title, p.content, p.created_at, p.updated_at, p.image_url,
+        p.likes_count, p.comments_count, p.author_id,
+        c.name as community_name, c.id as community_id
+      FROM posts p
+      LEFT JOIN communities c ON p.community_id = c.id
+      WHERE p.author_id = $1 AND p.is_published = true
+      ORDER BY p.created_at DESC
+    `;
+
+    db.query(query, [targetUserId], async (err, result) => {
+      if (err) {
+        console.error('Error fetching user posts:', err);
+        return res.status(500).json({ error: 'Failed to fetch user posts' });
+      }
+
+      // Filter posts based on privacy settings
+      const filteredPosts = await filterContentByPrivacy(
+        result.rows, 
+        viewerId, 
+        'community_posts_visibility'
+      );
+
+      res.json({ posts: filteredPosts });
+    });
+  } catch (error) {
+    console.error('Error in privacy filtering:', error);
+    res.status(500).json({ error: 'Failed to filter posts' });
+  }
+});
+
+// Get user's opportunities with privacy filtering
+router.get('/:userId/opportunities', authenticateToken, async (req, res) => {
+  const targetUserId = req.params.userId;
+  const viewerId = req.user.id;
+
+  try {
+    const query = `
+      SELECT 
+        o.id, o.title, o.description, o.category, o.location, o.field,
+        o.created_at, o.updated_at, o.deadline, o.image_url,
+        o.author_id
+      FROM opportunities o
+      WHERE o.author_id = $1
+      ORDER BY o.created_at DESC
+    `;
+
+    db.query(query, [targetUserId], async (err, result) => {
+      if (err) {
+        console.error('Error fetching user opportunities:', err);
+        return res.status(500).json({ error: 'Failed to fetch user opportunities' });
+      }
+
+      // Filter opportunities based on privacy settings
+      const filteredOpportunities = await filterContentByPrivacy(
+        result.rows, 
+        viewerId, 
+        'opportunities_on_profile_visibility'
+      );
+
+      res.json({ opportunities: filteredOpportunities });
+    });
+  } catch (error) {
+    console.error('Error in privacy filtering:', error);
+    res.status(500).json({ error: 'Failed to filter opportunities' });
+  }
+});
+
+// Get user's applications with privacy filtering
+router.get('/:userId/applications', authenticateToken, async (req, res) => {
+  const targetUserId = req.params.userId;
+  const viewerId = req.user.id;
+
+  try {
+    const query = `
+      SELECT 
+        a.id, a.status, a.notes, a.created_at, a.updated_at,
+        o.title as opportunity_title, o.id as opportunity_id,
+        a.user_id as author_id
+      FROM applications a
+      JOIN opportunities o ON a.opportunity_id = o.id
+      WHERE a.user_id = $1
+      ORDER BY a.created_at DESC
+    `;
+
+    db.query(query, [targetUserId], async (err, result) => {
+      if (err) {
+        console.error('Error fetching user applications:', err);
+        return res.status(500).json({ error: 'Failed to fetch user applications' });
+      }
+
+      // Filter applications based on privacy settings
+      const filteredApplications = await filterContentByPrivacy(
+        result.rows, 
+        viewerId, 
+        'applications_on_profile_visibility'
+      );
+
+      res.json({ applications: filteredApplications });
+    });
+  } catch (error) {
+    console.error('Error in privacy filtering:', error);
+    res.status(500).json({ error: 'Failed to filter applications' });
+  }
 });
 
 module.exports = router;

@@ -4,32 +4,46 @@ const db = require('../database');
 const { authenticateToken } = require('../middleware/auth');
 const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const logger = require('../utils/logger');
+const { filterContentByPrivacy } = require('../utils/privacy');
 
-// Get user's applications
-router.get('/', authenticateToken, (req, res) => {
+// Get user's applications with privacy filtering
+router.get('/', authenticateToken, async (req, res) => {
   const userId = req.user.id;
 
-  const query = `
-    SELECT 
-      a.id, a.opportunity_id, a.notes, a.status, a.created_at, a.updated_at,
-      o.title, o.description, o.category, o.location, o.field,
-      o.image_url, o.deadline, o.contact_info, o.application_url,
-      o.is_external_application, u.username as created_by_username, u.full_name as created_by_name
-    FROM applications a
-    JOIN opportunities o ON a.opportunity_id = o.id
-    LEFT JOIN users u ON o.created_by = u.id
-    WHERE a.user_id = $1
-    ORDER BY a.created_at DESC
-  `;
+  try {
+    const query = `
+      SELECT 
+        a.id, a.opportunity_id, a.notes, a.status, a.created_at, a.updated_at,
+        a.user_id as author_id,
+        o.title, o.description, o.category, o.location, o.field,
+        o.image_url, o.deadline, o.contact_info, o.application_url,
+        o.is_external_application, u.username as created_by_username, u.full_name as created_by_name
+      FROM applications a
+      JOIN opportunities o ON a.opportunity_id = o.id
+      LEFT JOIN users u ON o.created_by = u.id
+      WHERE a.user_id = $1
+      ORDER BY a.created_at DESC
+    `;
 
-  db.query(query, [userId], (err, result) => {
-    if (err) {
-      console.error('Error fetching applications:', err);
-      return res.status(500).json({ error: 'Failed to fetch applications' });
-    }
+    db.query(query, [userId], async (err, result) => {
+      if (err) {
+        console.error('Error fetching applications:', err);
+        return res.status(500).json({ error: 'Failed to fetch applications' });
+      }
 
-    res.json(result.rows);
-  });
+      // Filter applications based on privacy settings
+      const filteredApplications = await filterContentByPrivacy(
+        result.rows, 
+        userId, 
+        'applications_on_profile_visibility'
+      );
+
+      res.json(filteredApplications);
+    });
+  } catch (error) {
+    console.error('Error in privacy filtering:', error);
+    res.status(500).json({ error: 'Failed to filter applications' });
+  }
 });
 
 // Apply for an opportunity
