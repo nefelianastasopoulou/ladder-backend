@@ -459,13 +459,15 @@ router.get('/:id/posts', async (req, res) => {
       SELECT 
         p.id, p.title, p.content, p.image_url, p.likes_count, p.comments_count,
         p.created_at, p.updated_at, p.author_id,
-        u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar
+        u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar,
+        CASE WHEN l.user_id IS NOT NULL THEN true ELSE false END as is_liked
       FROM posts p
       LEFT JOIN users u ON p.author_id = u.id
+      LEFT JOIN likes l ON p.id = l.post_id AND l.user_id = $4
       WHERE p.community_id = $1 AND p.is_published = true
       ORDER BY p.created_at DESC
       LIMIT $2 OFFSET $3
-    `, [id, limit, offset]);
+    `, [id, limit, offset, req.user.id]);
 
     // Get total count
     const countResult = await db.query(

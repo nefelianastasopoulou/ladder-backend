@@ -37,17 +37,20 @@ router.post('/', authenticateToken, (req, res) => {
 });
 
 // Get all platform posts
-router.get('/', (req, res) => {
+router.get('/', authenticateToken, (req, res) => {
   const { page = 1, limit = 20 } = req.query;
   const offset = (page - 1) * limit;
+  const userId = req.user.id;
 
   const query = `
     SELECT 
       p.id, p.title, p.content, p.image_url, p.likes_count, p.comments_count,
       p.created_at, p.updated_at, p.author_id,
-      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar
+      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar,
+      CASE WHEN l.user_id IS NOT NULL THEN true ELSE false END as is_liked
     FROM posts p
     LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN likes l ON p.id = l.post_id AND l.user_id = $3
     WHERE p.community_id IS NULL AND p.is_published = true
     ORDER BY p.created_at DESC
     LIMIT $1 OFFSET $2
@@ -69,7 +72,7 @@ router.get('/', (req, res) => {
     const total = parseInt(countResult.rows[0].total);
 
     // Get posts
-    db.query(query, [parseInt(limit), offset], (err, result) => {
+    db.query(query, [parseInt(limit), offset, userId], (err, result) => {
       if (err) {
         console.error('Error fetching posts:', err);
         return sendErrorResponse(res, 500, 'Failed to fetch posts');
@@ -89,20 +92,23 @@ router.get('/', (req, res) => {
 });
 
 // Get post by ID
-router.get('/:id', (req, res) => {
+router.get('/:id', authenticateToken, (req, res) => {
   const postId = req.params.id;
+  const userId = req.user.id;
 
   const query = `
     SELECT 
       p.id, p.title, p.content, p.image_url, p.likes_count, p.comments_count,
       p.created_at, p.updated_at, p.author_id,
-      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar
+      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar,
+      CASE WHEN l.user_id IS NOT NULL THEN true ELSE false END as is_liked
     FROM posts p
     LEFT JOIN users u ON p.author_id = u.id
+    LEFT JOIN likes l ON p.id = l.post_id AND l.user_id = $2
     WHERE p.id = $1 AND p.is_published = true
   `;
 
-  db.query(query, [postId], (err, result) => {
+  db.query(query, [postId, userId], (err, result) => {
     if (err) {
       console.error('Error fetching post:', err);
       return sendErrorResponse(res, 500, 'Failed to fetch post');
