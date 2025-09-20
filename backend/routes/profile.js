@@ -150,6 +150,30 @@ router.put('/', authenticateToken, (req, res) => {
   }
 });
 
+// Get user's own posts
+router.get('/posts', authenticateToken, (req, res) => {
+  const userId = req.user.id;
+
+  const query = `
+    SELECT 
+      p.id, p.title, p.content, p.created_at, p.updated_at,
+      c.name as community_name, c.id as community_id
+    FROM posts p
+    LEFT JOIN communities c ON p.community_id = c.id
+    WHERE p.author_id = $1
+    ORDER BY p.created_at DESC
+  `;
+
+  db.query(query, [userId], (err, result) => {
+    if (err) {
+      console.error('Error fetching user posts:', err);
+      return res.status(500).json({ error: 'Failed to fetch user posts' });
+    }
+
+    res.json(result.rows);
+  });
+});
+
 // Get user profile by ID (public)
 router.get('/:userId', (req, res) => {
   const userId = req.params.userId;
