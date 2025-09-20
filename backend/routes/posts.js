@@ -246,17 +246,17 @@ router.post('/:id/like', authenticateToken, (req, res) => {
           return sendErrorResponse(res, 500, 'Failed to unlike post');
         }
 
-        // Update likes count and get the new count
-        db.query('UPDATE posts SET likes_count = likes_count - 1 WHERE id = $1 RETURNING likes_count', [postId], (err, updateResult) => {
+        // Get the updated likes count (trigger automatically updated it)
+        db.query('SELECT likes_count FROM posts WHERE id = $1', [postId], (err, countResult) => {
           if (err) {
-            console.error('Error updating likes count:', err);
-            return sendErrorResponse(res, 500, 'Failed to update likes count');
+            console.error('Error getting likes count:', err);
+            return sendErrorResponse(res, 500, 'Failed to get likes count');
           }
 
           res.json({ 
             message: 'Post unliked successfully', 
             liked: false,
-            likes_count: updateResult.rows[0].likes_count
+            likes_count: countResult.rows[0].likes_count
           });
         });
       });
@@ -269,17 +269,17 @@ router.post('/:id/like', authenticateToken, (req, res) => {
           return sendErrorResponse(res, 500, 'Failed to like post');
         }
 
-        // Update likes count and get the new count
-        db.query('UPDATE posts SET likes_count = likes_count + 1 WHERE id = $1 RETURNING likes_count', [postId], (err, updateResult) => {
+        // Get the updated likes count (trigger automatically updated it)
+        db.query('SELECT likes_count FROM posts WHERE id = $1', [postId], (err, countResult) => {
           if (err) {
-            console.error('Error updating likes count:', err);
-            return sendErrorResponse(res, 500, 'Failed to update likes count');
+            console.error('Error getting likes count:', err);
+            return sendErrorResponse(res, 500, 'Failed to get likes count');
           }
 
           res.json({ 
             message: 'Post liked successfully', 
             liked: true,
-            likes_count: updateResult.rows[0].likes_count
+            likes_count: countResult.rows[0].likes_count
           });
         });
       });
