@@ -336,16 +336,18 @@ router.post('/:id/comments', authenticateToken, (req, res) => {
       return sendErrorResponse(res, 500, 'Failed to create comment');
     }
 
-    // Update comments count
-    db.query('UPDATE posts SET comments_count = comments_count + 1 WHERE id = $1', [postId], (err) => {
+    // Get the updated comments count (trigger automatically updated it)
+    db.query('SELECT comments_count FROM posts WHERE id = $1', [postId], (err, countResult) => {
       if (err) {
-        console.error('Error updating comments count:', err);
+        console.error('Error getting comments count:', err);
+        return sendErrorResponse(res, 500, 'Failed to get comments count');
       }
-    });
 
-    res.status(201).json({
-      message: 'Comment created successfully',
-      comment: result.rows[0]
+      res.status(201).json({
+        message: 'Comment created successfully',
+        comment: result.rows[0],
+        comments_count: countResult.rows[0].comments_count
+      });
     });
   });
 });
