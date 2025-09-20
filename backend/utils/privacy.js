@@ -2,23 +2,21 @@
 const db = require('../database');
 
 /**
- * Check if two users are connected (accepted connection)
- * @param {number} userId1 - First user ID
- * @param {number} userId2 - Second user ID
- * @returns {Promise<boolean>} - True if users are connected
+ * Check if one user follows another user
+ * @param {number} followerId - User who might be following
+ * @param {number} followingId - User who might be followed
+ * @returns {Promise<boolean>} - True if followerId follows followingId
  */
-const areUsersConnected = async (userId1, userId2) => {
+const doesUserFollow = async (followerId, followingId) => {
   return new Promise((resolve, reject) => {
     const query = `
-      SELECT id FROM user_connections 
-      WHERE ((requester_id = $1 AND addressee_id = $2) 
-      OR (requester_id = $2 AND addressee_id = $1))
-      AND status = 'accepted'
+      SELECT id FROM user_follows 
+      WHERE follower_id = $1 AND following_id = $2
     `;
 
-    db.query(query, [userId1, userId2], (err, result) => {
+    db.query(query, [followerId, followingId], (err, result) => {
       if (err) {
-        console.error('Error checking user connection:', err);
+        console.error('Error checking user follow:', err);
         reject(err);
         return;
       }
@@ -32,7 +30,7 @@ const areUsersConnected = async (userId1, userId2) => {
  * Check if a user can see content based on privacy settings
  * @param {number} viewerId - ID of the user viewing the content
  * @param {number} contentOwnerId - ID of the user who owns the content
- * @param {string} visibilitySetting - Privacy setting: 'everyone', 'connections', 'none'
+ * @param {string} visibilitySetting - Privacy setting: 'everyone', 'followers', 'none'
  * @returns {Promise<boolean>} - True if viewer can see the content
  */
 const canUserSeeContent = async (viewerId, contentOwnerId, visibilitySetting) => {
@@ -47,8 +45,8 @@ const canUserSeeContent = async (viewerId, contentOwnerId, visibilitySetting) =>
       return true;
     case 'none':
       return false;
-    case 'connections':
-      return await areUsersConnected(viewerId, contentOwnerId);
+    case 'followers':
+      return await doesUserFollow(viewerId, contentOwnerId);
     default:
       // Default to 'everyone' for unknown settings
       return true;
@@ -132,7 +130,7 @@ const filterContentByPrivacy = async (content, viewerId, privacyField) => {
 };
 
 module.exports = {
-  areUsersConnected,
+  doesUserFollow,
   canUserSeeContent,
   getUserPrivacySettings,
   filterContentByPrivacy

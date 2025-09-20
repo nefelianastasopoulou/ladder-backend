@@ -16,7 +16,7 @@ const conversationsRoutes = require('./conversations');
 const adminRoutes = require('./admin');
 const reportsRoutes = require('./reports');
 const postsRoutes = require('./posts');
-const connectionsRoutes = require('./connections');
+const followersRoutes = require('./followers');
 
 const setupRoutes = (app) => {
   // API routes
@@ -42,7 +42,7 @@ const setupRoutes = (app) => {
   apiRouter.use('/conversations', authenticateToken, conversationsRoutes);
   apiRouter.use('/reports', authenticateToken, reportsRoutes);
   apiRouter.use('/communities', authenticateToken, communityRoutes);
-  apiRouter.use('/connections', authenticateToken, connectionsRoutes);
+  apiRouter.use('/followers', authenticateToken, followersRoutes);
 
   // Admin routes (admin only)
   apiRouter.use('/admin', authenticateToken, requireAdmin, adminRoutes);
@@ -73,7 +73,7 @@ const setupRoutes = (app) => {
                communities: '/api/communities',
                reports: '/api/reports',
                posts: '/api/posts',
-               connections: '/api/connections',
+               followers: '/api/followers',
                admin: '/api/admin'
       }
     });

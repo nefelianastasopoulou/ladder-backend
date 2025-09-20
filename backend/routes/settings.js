@@ -55,23 +55,23 @@ router.put('/', authenticateToken, (req, res) => {
   } = req.body;
 
   // Validate visibility settings
-  const validVisibilityOptions = ['everyone', 'connections', 'none'];
+  const validVisibilityOptions = ['everyone', 'followers', 'none'];
   
   if (community_posts_visibility && !validVisibilityOptions.includes(community_posts_visibility)) {
     return res.status(400).json({ 
-      error: 'community_posts_visibility must be one of: everyone, connections, none' 
+      error: 'community_posts_visibility must be one of: everyone, followers, none' 
     });
   }
   
   if (opportunities_on_profile_visibility && !validVisibilityOptions.includes(opportunities_on_profile_visibility)) {
     return res.status(400).json({ 
-      error: 'opportunities_on_profile_visibility must be one of: everyone, connections, none' 
+      error: 'opportunities_on_profile_visibility must be one of: everyone, followers, none' 
     });
   }
   
   if (applications_on_profile_visibility && !validVisibilityOptions.includes(applications_on_profile_visibility)) {
     return res.status(400).json({ 
-      error: 'applications_on_profile_visibility must be one of: everyone, connections, none' 
+      error: 'applications_on_profile_visibility must be one of: everyone, followers, none' 
     });
   }
 
