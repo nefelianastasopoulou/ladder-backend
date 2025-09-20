@@ -18,14 +18,30 @@ CREATE INDEX IF NOT EXISTS idx_user_connections_addressee ON user_connections(ad
 CREATE INDEX IF NOT EXISTS idx_user_connections_status ON user_connections(status);
 
 -- Add constraint for valid status values
-ALTER TABLE user_connections 
-ADD CONSTRAINT IF NOT EXISTS check_connection_status_valid 
-CHECK (status IN ('pending', 'accepted', 'declined', 'blocked'));
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_connection_status_valid'
+    ) THEN
+        ALTER TABLE user_connections 
+        ADD CONSTRAINT check_connection_status_valid 
+        CHECK (status IN ('pending', 'accepted', 'declined', 'blocked'));
+    END IF;
+END $$;
 
 -- Prevent self-connections
-ALTER TABLE user_connections 
-ADD CONSTRAINT IF NOT EXISTS check_no_self_connection 
-CHECK (requester_id != addressee_id);
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_no_self_connection'
+    ) THEN
+        ALTER TABLE user_connections 
+        ADD CONSTRAINT check_no_self_connection 
+        CHECK (requester_id != addressee_id);
+    END IF;
+END $$;
 
 -- Add trigger to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_connection_updated_at()
