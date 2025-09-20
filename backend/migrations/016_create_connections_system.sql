@@ -52,7 +52,15 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
-CREATE TRIGGER IF NOT EXISTS update_user_connections_updated_at
-    BEFORE UPDATE ON user_connections
-    FOR EACH ROW
-    EXECUTE FUNCTION update_connection_updated_at();
+DO $$ 
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_trigger 
+        WHERE tgname = 'update_user_connections_updated_at'
+    ) THEN
+        CREATE TRIGGER update_user_connections_updated_at
+            BEFORE UPDATE ON user_connections
+            FOR EACH ROW
+            EXECUTE FUNCTION update_connection_updated_at();
+    END IF;
+END $$;
