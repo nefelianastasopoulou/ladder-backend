@@ -11,8 +11,8 @@ router.get('/', authenticateToken, (req, res) => {
 
   const query = `
     SELECT 
-      posts_on_profile_visibility, show_online_status, push_notifications,
-      email_notifications, language, created_at, updated_at
+      community_posts_visibility, show_activity_status, push_notifications,
+      email_notifications, language
     FROM user_settings 
     WHERE user_id = $1
   `;
@@ -26,8 +26,8 @@ router.get('/', authenticateToken, (req, res) => {
     if (result.rows.length === 0) {
       // Return default settings if none exist
       const defaultSettings = {
-        posts_on_profile_visibility: 'public',
-        show_online_status: true,
+        community_posts_visibility: 'public',
+        show_activity_status: true,
         push_notifications: true,
         email_notifications: true,
         language: 'en'
@@ -43,17 +43,17 @@ router.get('/', authenticateToken, (req, res) => {
 router.put('/', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const {
-    posts_on_profile_visibility,
-    show_online_status,
+    community_posts_visibility,
+    show_activity_status,
     push_notifications,
     email_notifications,
     language
   } = req.body;
 
-  // Validate posts_on_profile_visibility
-  if (posts_on_profile_visibility && !['public', 'private', 'friends'].includes(posts_on_profile_visibility)) {
+  // Validate community_posts_visibility
+  if (community_posts_visibility && !['public', 'private', 'friends'].includes(community_posts_visibility)) {
     return res.status(400).json({ 
-      error: 'posts_on_profile_visibility must be one of: public, private, friends' 
+      error: 'community_posts_visibility must be one of: public, private, friends' 
     });
   }
 
@@ -84,17 +84,17 @@ router.put('/', authenticateToken, (req, res) => {
   function createSettings() {
     const query = `
       INSERT INTO user_settings (
-        user_id, posts_on_profile_visibility, show_online_status,
-        push_notifications, email_notifications, language, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-      RETURNING posts_on_profile_visibility, show_online_status, push_notifications,
-                email_notifications, language, created_at, updated_at
+        user_id, community_posts_visibility, show_activity_status,
+        push_notifications, email_notifications, language
+      ) VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING community_posts_visibility, show_activity_status, push_notifications,
+                email_notifications, language
     `;
 
     const values = [
       userId,
-      posts_on_profile_visibility || 'public',
-      show_online_status !== undefined ? show_online_status : true,
+      community_posts_visibility || 'public',
+      show_activity_status !== undefined ? show_activity_status : true,
       push_notifications !== undefined ? push_notifications : true,
       email_notifications !== undefined ? email_notifications : true,
       language || 'en'
@@ -118,13 +118,13 @@ router.put('/', authenticateToken, (req, res) => {
     const values = [];
     let paramCount = 1;
 
-    if (posts_on_profile_visibility !== undefined) {
-      updateFields.push(`posts_on_profile_visibility = $${paramCount++}`);
-      values.push(posts_on_profile_visibility);
+    if (community_posts_visibility !== undefined) {
+      updateFields.push(`community_posts_visibility = $${paramCount++}`);
+      values.push(community_posts_visibility);
     }
-    if (show_online_status !== undefined) {
-      updateFields.push(`show_online_status = $${paramCount++}`);
-      values.push(show_online_status);
+    if (show_activity_status !== undefined) {
+      updateFields.push(`show_activity_status = $${paramCount++}`);
+      values.push(show_activity_status);
     }
     if (push_notifications !== undefined) {
       updateFields.push(`push_notifications = $${paramCount++}`);
@@ -143,15 +143,14 @@ router.put('/', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'No settings to update' });
     }
 
-    updateFields.push(`updated_at = NOW()`);
     values.push(userId);
 
     const query = `
       UPDATE user_settings 
       SET ${updateFields.join(', ')}
       WHERE user_id = $${paramCount}
-      RETURNING posts_on_profile_visibility, show_online_status, push_notifications,
-                email_notifications, language, created_at, updated_at
+      RETURNING community_posts_visibility, show_activity_status, push_notifications,
+                email_notifications, language
     `;
 
     db.query(query, values, (err, result) => {
@@ -173,8 +172,8 @@ router.post('/reset', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   const defaultSettings = {
-    posts_on_profile_visibility: 'public',
-    show_online_status: true,
+    community_posts_visibility: 'public',
+    show_activity_status: true,
     push_notifications: true,
     email_notifications: true,
     language: 'en'
@@ -193,21 +192,20 @@ router.post('/reset', authenticateToken, (req, res) => {
       const updateQuery = `
         UPDATE user_settings 
         SET 
-          posts_on_profile_visibility = $2,
-          show_online_status = $3,
+          community_posts_visibility = $2,
+          show_activity_status = $3,
           push_notifications = $4,
           email_notifications = $5,
-          language = $6,
-          updated_at = NOW()
+          language = $6
         WHERE user_id = $1
-        RETURNING posts_on_profile_visibility, show_online_status, push_notifications,
-                  email_notifications, language, created_at, updated_at
+        RETURNING community_posts_visibility, show_activity_status, push_notifications,
+                  email_notifications, language
       `;
 
       const values = [
         userId,
-        defaultSettings.posts_on_profile_visibility,
-        defaultSettings.show_online_status,
+        defaultSettings.community_posts_visibility,
+        defaultSettings.show_activity_status,
         defaultSettings.push_notifications,
         defaultSettings.email_notifications,
         defaultSettings.language
@@ -228,17 +226,17 @@ router.post('/reset', authenticateToken, (req, res) => {
       // Create with defaults
       const insertQuery = `
         INSERT INTO user_settings (
-          user_id, posts_on_profile_visibility, show_online_status,
-          push_notifications, email_notifications, language, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
-        RETURNING posts_on_profile_visibility, show_online_status, push_notifications,
-                  email_notifications, language, created_at, updated_at
+          user_id, community_posts_visibility, show_activity_status,
+          push_notifications, email_notifications, language
+        ) VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING community_posts_visibility, show_activity_status, push_notifications,
+                  email_notifications, language
       `;
 
       const values = [
         userId,
-        defaultSettings.posts_on_profile_visibility,
-        defaultSettings.show_online_status,
+        defaultSettings.community_posts_visibility,
+        defaultSettings.show_activity_status,
         defaultSettings.push_notifications,
         defaultSettings.email_notifications,
         defaultSettings.language
