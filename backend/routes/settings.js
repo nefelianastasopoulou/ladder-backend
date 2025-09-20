@@ -11,8 +11,8 @@ router.get('/', authenticateToken, (req, res) => {
 
   const query = `
     SELECT 
-      community_posts_visibility, show_activity_status, push_notifications,
-      email_notifications, language
+      community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+      show_activity_status, push_notifications, email_notifications, language
     FROM user_settings 
     WHERE user_id = $1
   `;
@@ -26,7 +26,9 @@ router.get('/', authenticateToken, (req, res) => {
     if (result.rows.length === 0) {
       // Return default settings if none exist
       const defaultSettings = {
-        community_posts_visibility: 'public',
+        community_posts_visibility: 'everyone',
+        opportunities_on_profile_visibility: 'everyone',
+        applications_on_profile_visibility: 'everyone',
         show_activity_status: true,
         push_notifications: true,
         email_notifications: true,
@@ -44,16 +46,32 @@ router.put('/', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const {
     community_posts_visibility,
+    opportunities_on_profile_visibility,
+    applications_on_profile_visibility,
     show_activity_status,
     push_notifications,
     email_notifications,
     language
   } = req.body;
 
-  // Validate community_posts_visibility
-  if (community_posts_visibility && !['public', 'private', 'friends'].includes(community_posts_visibility)) {
+  // Validate visibility settings
+  const validVisibilityOptions = ['everyone', 'connections', 'none'];
+  
+  if (community_posts_visibility && !validVisibilityOptions.includes(community_posts_visibility)) {
     return res.status(400).json({ 
-      error: 'community_posts_visibility must be one of: public, private, friends' 
+      error: 'community_posts_visibility must be one of: everyone, connections, none' 
+    });
+  }
+  
+  if (opportunities_on_profile_visibility && !validVisibilityOptions.includes(opportunities_on_profile_visibility)) {
+    return res.status(400).json({ 
+      error: 'opportunities_on_profile_visibility must be one of: everyone, connections, none' 
+    });
+  }
+  
+  if (applications_on_profile_visibility && !validVisibilityOptions.includes(applications_on_profile_visibility)) {
+    return res.status(400).json({ 
+      error: 'applications_on_profile_visibility must be one of: everyone, connections, none' 
     });
   }
 
@@ -84,16 +102,18 @@ router.put('/', authenticateToken, (req, res) => {
   function createSettings() {
     const query = `
       INSERT INTO user_settings (
-        user_id, community_posts_visibility, show_activity_status,
-        push_notifications, email_notifications, language
-      ) VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING community_posts_visibility, show_activity_status, push_notifications,
-                email_notifications, language
+        user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+        show_activity_status, push_notifications, email_notifications, language
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+      RETURNING community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+                show_activity_status, push_notifications, email_notifications, language
     `;
 
     const values = [
       userId,
-      community_posts_visibility || 'public',
+      community_posts_visibility || 'everyone',
+      opportunities_on_profile_visibility || 'everyone',
+      applications_on_profile_visibility || 'everyone',
       show_activity_status !== undefined ? show_activity_status : true,
       push_notifications !== undefined ? push_notifications : true,
       email_notifications !== undefined ? email_notifications : true,
@@ -122,6 +142,14 @@ router.put('/', authenticateToken, (req, res) => {
       updateFields.push(`community_posts_visibility = $${paramCount++}`);
       values.push(community_posts_visibility);
     }
+    if (opportunities_on_profile_visibility !== undefined) {
+      updateFields.push(`opportunities_on_profile_visibility = $${paramCount++}`);
+      values.push(opportunities_on_profile_visibility);
+    }
+    if (applications_on_profile_visibility !== undefined) {
+      updateFields.push(`applications_on_profile_visibility = $${paramCount++}`);
+      values.push(applications_on_profile_visibility);
+    }
     if (show_activity_status !== undefined) {
       updateFields.push(`show_activity_status = $${paramCount++}`);
       values.push(show_activity_status);
@@ -149,8 +177,8 @@ router.put('/', authenticateToken, (req, res) => {
       UPDATE user_settings 
       SET ${updateFields.join(', ')}
       WHERE user_id = $${paramCount}
-      RETURNING community_posts_visibility, show_activity_status, push_notifications,
-                email_notifications, language
+      RETURNING community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+                show_activity_status, push_notifications, email_notifications, language
     `;
 
     db.query(query, values, (err, result) => {
@@ -172,7 +200,9 @@ router.post('/reset', authenticateToken, (req, res) => {
   const userId = req.user.id;
 
   const defaultSettings = {
-    community_posts_visibility: 'public',
+    community_posts_visibility: 'everyone',
+    opportunities_on_profile_visibility: 'everyone',
+    applications_on_profile_visibility: 'everyone',
     show_activity_status: true,
     push_notifications: true,
     email_notifications: true,
@@ -193,18 +223,22 @@ router.post('/reset', authenticateToken, (req, res) => {
         UPDATE user_settings 
         SET 
           community_posts_visibility = $2,
-          show_activity_status = $3,
-          push_notifications = $4,
-          email_notifications = $5,
-          language = $6
+          opportunities_on_profile_visibility = $3,
+          applications_on_profile_visibility = $4,
+          show_activity_status = $5,
+          push_notifications = $6,
+          email_notifications = $7,
+          language = $8
         WHERE user_id = $1
-        RETURNING community_posts_visibility, show_activity_status, push_notifications,
-                  email_notifications, language
+        RETURNING community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+                  show_activity_status, push_notifications, email_notifications, language
       `;
 
       const values = [
         userId,
         defaultSettings.community_posts_visibility,
+        defaultSettings.opportunities_on_profile_visibility,
+        defaultSettings.applications_on_profile_visibility,
         defaultSettings.show_activity_status,
         defaultSettings.push_notifications,
         defaultSettings.email_notifications,
@@ -226,16 +260,18 @@ router.post('/reset', authenticateToken, (req, res) => {
       // Create with defaults
       const insertQuery = `
         INSERT INTO user_settings (
-          user_id, community_posts_visibility, show_activity_status,
-          push_notifications, email_notifications, language
-        ) VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING community_posts_visibility, show_activity_status, push_notifications,
-                  email_notifications, language
+          user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+          show_activity_status, push_notifications, email_notifications, language
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        RETURNING community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility,
+                  show_activity_status, push_notifications, email_notifications, language
       `;
 
       const values = [
         userId,
         defaultSettings.community_posts_visibility,
+        defaultSettings.opportunities_on_profile_visibility,
+        defaultSettings.applications_on_profile_visibility,
         defaultSettings.show_activity_status,
         defaultSettings.push_notifications,
         defaultSettings.email_notifications,
