@@ -519,8 +519,8 @@ router.post('/:id/posts', async (req, res) => {
 
     // Create post
     const newPost = await db.query(`
-      INSERT INTO posts (title, content, author_id, community_id, image_url, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+      INSERT INTO posts (title, content, author_id, community_id, image_url, is_published, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, true, NOW(), NOW())
       RETURNING id, title, content, image_url, created_at, updated_at
     `, [title, content, req.user.id, id, image_url || null]);
 

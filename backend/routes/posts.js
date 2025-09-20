@@ -16,8 +16,8 @@ router.post('/', authenticateToken, (req, res) => {
   }
 
   const query = `
-    INSERT INTO posts (title, content, author_id, image_url, created_at, updated_at)
-    VALUES ($1, $2, $3, $4, NOW(), NOW())
+    INSERT INTO posts (title, content, author_id, image_url, is_published, created_at, updated_at)
+    VALUES ($1, $2, $3, $4, true, NOW(), NOW())
     RETURNING id, title, content, image_url, created_at, updated_at
   `;
 
