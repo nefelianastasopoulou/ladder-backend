@@ -44,7 +44,7 @@ router.get('/', (req, res) => {
   const query = `
     SELECT 
       p.id, p.title, p.content, p.image_url, p.likes_count, p.comments_count,
-      p.created_at, p.updated_at,
+      p.created_at, p.updated_at, p.author_id,
       u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar
     FROM posts p
     LEFT JOIN users u ON p.author_id = u.id
