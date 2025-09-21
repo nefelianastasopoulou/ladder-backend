@@ -555,4 +555,47 @@ router.post('/:id/posts', async (req, res) => {
   }
 });
 
+/**
+ * Delete Community
+ * DELETE /api/communities/:id
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if community exists
+    const community = await db.query(
+      'SELECT id, name, creator_id FROM communities WHERE id = $1',
+      [id]
+    );
+
+    if (community.rows.length === 0) {
+      return sendNotFoundError(res, 'Community not found');
+    }
+
+    const communityData = community.rows[0];
+
+    // Check if user is the creator
+    if (communityData.creator_id !== req.user.id) {
+      return sendErrorResponse(res, 403, 'Only the community creator can delete this community');
+    }
+
+    // Delete community (cascade will handle related records)
+    await db.query('DELETE FROM communities WHERE id = $1', [id]);
+
+    logger.info('Community deleted successfully', {
+      communityId: id,
+      communityName: communityData.name,
+      deletedBy: req.user.id,
+      ip: req.ip
+    });
+
+    sendSuccessResponse(res, 200, 'Community deleted successfully');
+
+  } catch (error) {
+    logger.error('Community deletion failed:', error);
+    sendErrorResponse(res, 500, 'Failed to delete community');
+  }
+});
+
 module.exports = router;
