@@ -195,6 +195,11 @@ router.put('/:id', validate(schemas.community.update), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, description, category, is_public } = req.body;
+    
+    // Ensure we have at least one field to update
+    if (!name && !description && category === undefined && is_public === undefined) {
+      return sendErrorResponse(res, 400, 'At least one field must be provided for update');
+    }
 
     // Check if community exists and user has permission
     const community = await db.query(`
