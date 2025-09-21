@@ -32,16 +32,29 @@ AND user1_id IS NULL
 AND user2_id IS NULL;
 
 -- Add constraints to ensure individual conversations have exactly 2 users
-ALTER TABLE conversations 
-ADD CONSTRAINT check_individual_conversation_users 
-CHECK (
-  (type = 'individual' AND user1_id IS NOT NULL AND user2_id IS NOT NULL AND user1_id != user2_id) OR
-  (type != 'individual')
-);
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_individual_conversation_users'
+    ) THEN
+        ALTER TABLE conversations 
+        ADD CONSTRAINT check_individual_conversation_users 
+        CHECK (
+          (type = 'individual' AND user1_id IS NOT NULL AND user2_id IS NOT NULL AND user1_id != user2_id) OR
+          (type != 'individual')
+        );
+    END IF;
+END $$;
 
 -- Update messages table to use author_id instead of sender_id to match backend
-ALTER TABLE messages 
-RENAME COLUMN sender_id TO author_id;
+DO $$ BEGIN
+    IF EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'messages' AND column_name = 'sender_id'
+    ) THEN
+        ALTER TABLE messages RENAME COLUMN sender_id TO author_id;
+    END IF;
+END $$;
 
 -- Add updated_at column to messages if it doesn't exist
 ALTER TABLE messages 
