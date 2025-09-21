@@ -669,4 +669,74 @@ router.get('/stats', authenticateToken, requireAdmin, (req, res) => {
     });
 });
 
+// Run database migration to fix likes and comments count synchronization (admin only)
+router.post('/migrate/fix-counts', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    logger.info('Admin migration started: Fix likes and comments count synchronization', {
+      adminId: req.user.id,
+      adminEmail: req.user.email,
+      ip: req.ip
+    });
+
+    // Update all posts to have the correct likes_count
+    const likesResult = await db.query(`
+      UPDATE posts 
+      SET likes_count = (
+        SELECT COUNT(*) 
+        FROM likes 
+        WHERE likes.post_id = posts.id
+      )
+    `);
+
+    // Update all posts to have the correct comments_count
+    const commentsResult = await db.query(`
+      UPDATE posts 
+      SET comments_count = (
+        SELECT COUNT(*) 
+        FROM comments 
+        WHERE comments.post_id = posts.id
+      )
+    `);
+
+    // Get verification results
+    const verifyResult = await db.query(`
+      SELECT 
+        p.id, 
+        p.title, 
+        p.likes_count as stored_likes,
+        COUNT(l.id) as actual_likes,
+        p.comments_count as stored_comments,
+        COUNT(c.id) as actual_comments,
+        CASE 
+          WHEN p.likes_count = COUNT(l.id) AND p.comments_count = COUNT(c.id) THEN 'SYNCED' 
+          ELSE 'MISMATCH' 
+        END as status
+      FROM posts p
+      LEFT JOIN likes l ON p.id = l.post_id
+      LEFT JOIN comments c ON p.id = c.post_id
+      GROUP BY p.id, p.title, p.likes_count, p.comments_count
+      ORDER BY p.id
+    `);
+
+    logger.info('Admin migration completed: Fix likes and comments count synchronization', {
+      adminId: req.user.id,
+      postsUpdated: likesResult.rowCount,
+      verificationResults: verifyResult.rows
+    });
+
+    sendSuccessResponse(res, 200, 'Migration completed successfully', {
+      postsUpdated: likesResult.rowCount,
+      verificationResults: verifyResult.rows
+    });
+
+  } catch (error) {
+    logger.error('Admin migration failed: Fix likes and comments count synchronization', {
+      adminId: req.user.id,
+      error: error.message,
+      stack: error.stack
+    });
+    sendErrorResponse(res, 500, 'Migration failed: ' + error.message);
+  }
+});
+
 module.exports = router;
