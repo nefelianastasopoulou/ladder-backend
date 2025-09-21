@@ -19,6 +19,9 @@ const { setupRoutes } = require('./routes/setup');
 // Import database
 const db = require('./database');
 
+// Import startup fix
+const fixCountsOnStartup = require('./scripts/fix-counts-on-startup');
+
 // Environment validation
 const validateEnvironment = () => {
   try {
@@ -117,11 +120,14 @@ const startServer = () => {
   startMemoryMonitoring(config.NODE_ENV);
   
   // Start server
-  const server = app.listen(config.PORT, '0.0.0.0', () => {
+  const server = app.listen(config.PORT, '0.0.0.0', async () => {
     logger.info(`🚀 Server running on port ${config.PORT}`);
     logger.info(`📊 Environment: ${config.NODE_ENV}`);
     logger.info(`🔒 Trust Proxy: ${config.TRUST_PROXY}`);
     logger.info(`📈 Rate Limit: ${config.RATE_LIMIT_MAX_REQUESTS} requests per ${config.RATE_LIMIT_WINDOW_MS / 1000 / 60} minutes`);
+    
+    // Fix counts on startup
+    await fixCountsOnStartup();
   });
   
   // Graceful shutdown handlers
