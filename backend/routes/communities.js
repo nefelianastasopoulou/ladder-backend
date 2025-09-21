@@ -23,17 +23,15 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT c.id, c.name, c.description, c.category, c.is_public, c.created_at,
              c.creator_id, u.username as creator_username,
-             COUNT(cm.user_id) as member_count,
-             CASE WHEN cm_user.user_id IS NOT NULL THEN true ELSE false END as is_member
+             COUNT(cm.user_id) as member_count
       FROM communities c
       LEFT JOIN users u ON c.creator_id = u.id
       LEFT JOIN community_members cm ON c.id = cm.community_id
-      LEFT JOIN community_members cm_user ON c.id = cm_user.community_id AND cm_user.user_id = $1
       WHERE c.is_public = true
     `;
     
-    const queryParams = [req.user.id];
-    let paramCount = 1;
+    const queryParams = [];
+    let paramCount = 0;
 
     // Add search filter
     if (search) {
@@ -49,7 +47,7 @@ router.get('/', async (req, res) => {
       queryParams.push(category);
     }
 
-    query += ` ORDER BY c.created_at DESC`;
+    query += ` GROUP BY c.id, u.username ORDER BY c.created_at DESC`;
 
     // Get total count
     const countQuery = `
@@ -61,7 +59,7 @@ router.get('/', async (req, res) => {
     `;
 
     const [communitiesResult, countResult] = await Promise.all([
-      db.query(query + ` GROUP BY c.id, u.username, cm_user.user_id LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`, 
+      db.query(query + ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`, 
                [...queryParams, limit, offset]),
       db.query(countQuery)
     ]);
@@ -69,7 +67,21 @@ router.get('/', async (req, res) => {
     const communities = communitiesResult.rows;
     const total = parseInt(countResult.rows[0].total);
 
-    sendPaginatedResponse(res, communities, parseInt(page), parseInt(limit), total, 'Communities retrieved successfully');
+    // Add membership status for each community
+    const communitiesWithMembership = await Promise.all(
+      communities.map(async (community) => {
+        const membership = await db.query(
+          'SELECT id FROM community_members WHERE community_id = $1 AND user_id = $2',
+          [community.id, req.user.id]
+        );
+        return {
+          ...community,
+          is_member: membership.rows.length > 0
+        };
+      })
+    );
+
+    sendPaginatedResponse(res, communitiesWithMembership, parseInt(page), parseInt(limit), total, 'Communities retrieved successfully');
 
   } catch (error) {
     logger.error('Get communities failed:', error);
