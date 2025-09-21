@@ -194,10 +194,10 @@ router.post('/', validate(schemas.community.create), async (req, res) => {
 router.put('/:id', validate(schemas.community.update), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description, category, is_public } = req.body;
+    const { name, description } = req.body;
     
     // Ensure we have at least one field to update
-    if (!name && !description && category === undefined && is_public === undefined) {
+    if (!name && !description) {
       return sendErrorResponse(res, 400, 'At least one field must be provided for update');
     }
 
@@ -249,17 +249,6 @@ router.put('/:id', validate(schemas.community.update), async (req, res) => {
       updateValues.push(description);
     }
 
-    if (category !== undefined) {
-      paramCount++;
-      updateFields.push(`category = $${paramCount}`);
-      updateValues.push(category);
-    }
-
-    if (is_public !== undefined) {
-      paramCount++;
-      updateFields.push(`is_public = $${paramCount}`);
-      updateValues.push(is_public);
-    }
 
     if (updateFields.length === 0) {
       return sendErrorResponse(res, 400, 'No fields to update');
