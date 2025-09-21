@@ -288,23 +288,26 @@ router.post('/:id/like', authenticateToken, (req, res) => {
 });
 
 // Get post comments
-router.get('/:id/comments', (req, res) => {
+router.get('/:id/comments', authenticateToken, (req, res) => {
   const postId = req.params.id;
+  const userId = req.user.id;
   const { page = 1, limit = 20 } = req.query;
   const offset = (page - 1) * limit;
 
   const query = `
     SELECT 
-      c.id, c.content, c.created_at, c.updated_at,
-      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar
+      c.id, c.content, c.created_at, c.updated_at, c.parent_comment_id, c.likes_count,
+      u.username as author_username, u.full_name as author_name, u.avatar_url as author_avatar,
+      CASE WHEN cl.user_id IS NOT NULL THEN true ELSE false END as is_liked
     FROM comments c
     LEFT JOIN users u ON c.author_id = u.id
+    LEFT JOIN comment_likes cl ON c.id = cl.comment_id AND cl.user_id = $4
     WHERE c.post_id = $1
     ORDER BY c.created_at ASC
     LIMIT $2 OFFSET $3
   `;
 
-  db.query(query, [postId, parseInt(limit), offset], (err, result) => {
+  db.query(query, [postId, parseInt(limit), offset, userId], (err, result) => {
     if (err) {
       console.error('Error fetching comments:', err);
       return sendErrorResponse(res, 500, 'Failed to fetch comments');
@@ -347,6 +350,155 @@ router.post('/:id/comments', authenticateToken, (req, res) => {
         message: 'Comment created successfully',
         comment: result.rows[0],
         comments_count: countResult.rows[0].comments_count
+      });
+    });
+  });
+});
+
+// Delete comment (author only)
+router.delete('/:postId/comments/:commentId', authenticateToken, (req, res) => {
+  const { postId, commentId } = req.params;
+  const userId = req.user.id;
+
+  // Check if comment exists and belongs to user
+  const checkQuery = 'SELECT author_id FROM comments WHERE id = $1 AND post_id = $2';
+  db.query(checkQuery, [commentId, postId], (err, result) => {
+    if (err) {
+      console.error('Error checking comment ownership:', err);
+      return sendErrorResponse(res, 500, 'Failed to verify comment ownership');
+    }
+
+    if (result.rows.length === 0) {
+      return sendErrorResponse(res, 404, 'Comment not found');
+    }
+
+    if (result.rows[0].author_id !== userId) {
+      return sendErrorResponse(res, 403, 'You can only delete your own comments');
+    }
+
+    // Delete the comment
+    const deleteQuery = 'DELETE FROM comments WHERE id = $1';
+    db.query(deleteQuery, [commentId], (err) => {
+      if (err) {
+        console.error('Error deleting comment:', err);
+        return sendErrorResponse(res, 500, 'Failed to delete comment');
+      }
+
+      res.json({ message: 'Comment deleted successfully' });
+    });
+  });
+});
+
+// Like/unlike comment
+router.post('/:postId/comments/:commentId/like', authenticateToken, (req, res) => {
+  const { postId, commentId } = req.params;
+  const userId = req.user.id;
+
+  // Check if already liked
+  const checkLikeQuery = 'SELECT id FROM comment_likes WHERE user_id = $1 AND comment_id = $2';
+  db.query(checkLikeQuery, [userId, commentId], (err, result) => {
+    if (err) {
+      console.error('Error checking comment like status:', err);
+      return sendErrorResponse(res, 500, 'Failed to check like status');
+    }
+
+    if (result.rows.length > 0) {
+      // Unlike the comment
+      const unlikeQuery = 'DELETE FROM comment_likes WHERE user_id = $1 AND comment_id = $2';
+      db.query(unlikeQuery, [userId, commentId], (err) => {
+        if (err) {
+          console.error('Error unliking comment:', err);
+          return sendErrorResponse(res, 500, 'Failed to unlike comment');
+        }
+
+        // Get the updated likes count (trigger automatically updated it)
+        db.query('SELECT likes_count FROM comments WHERE id = $1', [commentId], (err, countResult) => {
+          if (err) {
+            console.error('Error getting comment likes count:', err);
+            return sendErrorResponse(res, 500, 'Failed to get likes count');
+          }
+
+          res.json({ 
+            message: 'Comment unliked successfully', 
+            liked: false,
+            likes_count: countResult.rows[0].likes_count
+          });
+        });
+      });
+    } else {
+      // Like the comment
+      const likeQuery = 'INSERT INTO comment_likes (user_id, comment_id, created_at) VALUES ($1, $2, NOW())';
+      db.query(likeQuery, [userId, commentId], (err) => {
+        if (err) {
+          console.error('Error liking comment:', err);
+          return sendErrorResponse(res, 500, 'Failed to like comment');
+        }
+
+        // Get the updated likes count (trigger automatically updated it)
+        db.query('SELECT likes_count FROM comments WHERE id = $1', [commentId], (err, countResult) => {
+          if (err) {
+            console.error('Error getting comment likes count:', err);
+            return sendErrorResponse(res, 500, 'Failed to get likes count');
+          }
+
+          res.json({ 
+            message: 'Comment liked successfully', 
+            liked: true,
+            likes_count: countResult.rows[0].likes_count
+          });
+        });
+      });
+    }
+  });
+});
+
+// Reply to comment
+router.post('/:postId/comments/:commentId/reply', authenticateToken, (req, res) => {
+  const { postId, commentId } = req.params;
+  const userId = req.user.id;
+  const { content } = req.body;
+
+  if (!content) {
+    return sendErrorResponse(res, 400, 'Reply content is required');
+  }
+
+  // Check if parent comment exists
+  const checkParentQuery = 'SELECT id FROM comments WHERE id = $1 AND post_id = $2';
+  db.query(checkParentQuery, [commentId, postId], (err, result) => {
+    if (err) {
+      console.error('Error checking parent comment:', err);
+      return sendErrorResponse(res, 500, 'Failed to verify parent comment');
+    }
+
+    if (result.rows.length === 0) {
+      return sendErrorResponse(res, 404, 'Parent comment not found');
+    }
+
+    // Create reply
+    const replyQuery = `
+      INSERT INTO comments (content, author_id, post_id, parent_comment_id, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING id, content, created_at, updated_at
+    `;
+
+    db.query(replyQuery, [content, userId, postId, commentId], (err, result) => {
+      if (err) {
+        console.error('Error creating reply:', err);
+        return sendErrorResponse(res, 500, 'Failed to create reply');
+      }
+
+      // Get the updated comments count (trigger automatically updated it)
+      db.query('SELECT comments_count FROM posts WHERE id = $1', [postId], (err, countResult) => {
+        if (err) {
+          console.error('Error getting comments count:', err);
+          return sendErrorResponse(res, 500, 'Failed to get comments count');
+        }
+
+        res.status(201).json({
+          message: 'Reply created successfully',
+          reply: result.rows[0],
+          comments_count: countResult.rows[0].comments_count
+        });
       });
     });
   });
