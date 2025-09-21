@@ -23,15 +23,17 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT c.id, c.name, c.description, c.category, c.is_public, c.created_at,
              c.creator_id, u.username as creator_username,
-             COUNT(cm.user_id) as member_count
+             COUNT(cm.user_id) as member_count,
+             CASE WHEN cm_user.user_id IS NOT NULL THEN true ELSE false END as is_member
       FROM communities c
       LEFT JOIN users u ON c.creator_id = u.id
       LEFT JOIN community_members cm ON c.id = cm.community_id
+      LEFT JOIN community_members cm_user ON c.id = cm_user.community_id AND cm_user.user_id = $1
       WHERE c.is_public = true
     `;
     
-    const queryParams = [];
-    let paramCount = 0;
+    const queryParams = [req.user.id];
+    let paramCount = 1;
 
     // Add search filter
     if (search) {
@@ -47,7 +49,7 @@ router.get('/', async (req, res) => {
       queryParams.push(category);
     }
 
-    query += ` GROUP BY c.id, u.username ORDER BY c.created_at DESC`;
+    query += ` ORDER BY c.created_at DESC`;
 
     // Get total count
     const countQuery = `
@@ -59,7 +61,7 @@ router.get('/', async (req, res) => {
     `;
 
     const [communitiesResult, countResult] = await Promise.all([
-      db.query(query + ` LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`, 
+      db.query(query + ` GROUP BY c.id, u.username, cm_user.user_id LIMIT $${paramCount + 1} OFFSET $${paramCount + 2}`, 
                [...queryParams, limit, offset]),
       db.query(countQuery)
     ]);
