@@ -85,7 +85,7 @@ const schemas = {
   community: {
     create: Joi.object({
       name: Joi.string().min(3).max(100).required().trim(),
-      description: Joi.string().max(500).required().trim(),
+      description: Joi.string().max(500).optional().trim().allow(''),
       category: Joi.string().max(50).optional().trim(),
       is_public: Joi.boolean().optional()
     }),
