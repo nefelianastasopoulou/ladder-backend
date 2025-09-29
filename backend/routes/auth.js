@@ -22,14 +22,14 @@ router.post('/register', validate(schemas.user.signup), async (req, res) => {
   try {
     const { email, password, full_name, username } = req.body;
 
-    // Check if user already exists
+    // Check if username already exists (email can be duplicated)
     const existingUser = await db.query(
-      'SELECT id FROM users WHERE email = $1 OR username = $2',
-      [email, username]
+      'SELECT id FROM users WHERE username = $1',
+      [username]
     );
 
     if (existingUser.rows.length > 0) {
-      return sendErrorResponse(res, 409, 'User with this email or username already exists');
+      return sendErrorResponse(res, 409, 'Username already exists');
     }
 
     // Hash password
@@ -300,14 +300,14 @@ router.post('/signup', validate(schemas.user.signup), async (req, res) => {
   try {
     const { email, password, full_name, username } = req.body;
 
-    // Check if user already exists
+    // Check if username already exists (email can be duplicated)
     const existingUser = await db.query(
-      'SELECT id FROM users WHERE email = $1 OR username = $2',
-      [email, username]
+      'SELECT id FROM users WHERE username = $1',
+      [username]
     );
 
     if (existingUser.rows.length > 0) {
-      return sendErrorResponse(res, 409, 'User with this email or username already exists');
+      return sendErrorResponse(res, 409, 'Username already exists');
     }
 
     // Hash password
