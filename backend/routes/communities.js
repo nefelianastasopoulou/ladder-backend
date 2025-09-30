@@ -194,14 +194,12 @@ router.post('/', validate(schemas.community.create), async (req, res) => {
 router.put('/:id', validate(schemas.community.update), async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, description } = req.body;
+    const { name, description } = req.body; // Only destructure name and description
     
-    // Ensure we have at least one field to update
     if (!name && !description) {
       return sendErrorResponse(res, 400, 'At least one field must be provided for update');
     }
 
-    // Check if community exists and user has permission
     const community = await db.query(`
       SELECT c.*, cm.role
       FROM communities c
@@ -215,12 +213,10 @@ router.put('/:id', validate(schemas.community.update), async (req, res) => {
 
     const communityData = community.rows[0];
 
-    // Check permissions (creator or admin)
     if (communityData.creator_id !== req.user.id && communityData.role !== 'admin') {
       return sendErrorResponse(res, 403, 'You do not have permission to update this community');
     }
 
-    // Check if new name conflicts (if name is being changed)
     if (name && name !== communityData.name) {
       const existingCommunity = await db.query(
         'SELECT id FROM communities WHERE name = $1 AND id != $2',
@@ -232,7 +228,6 @@ router.put('/:id', validate(schemas.community.update), async (req, res) => {
       }
     }
 
-    // Update community
     const updateFields = [];
     const updateValues = [];
     let paramCount = 0;
@@ -248,7 +243,8 @@ router.put('/:id', validate(schemas.community.update), async (req, res) => {
       updateFields.push(`description = $${paramCount}`);
       updateValues.push(description);
     }
-
+    
+    // Removed category and is_public update logic
 
     if (updateFields.length === 0) {
       return sendErrorResponse(res, 400, 'No fields to update');
