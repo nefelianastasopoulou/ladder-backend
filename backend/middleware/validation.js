@@ -12,14 +12,14 @@ const schemas = {
   // User validation
   user: {
     signup: Joi.object({
-      email: Joi.string().email().required().max(255),
+      email: Joi.string().email().required().max(255).trim(),
       password: Joi.string().min(8).max(128).required()
         .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
         .messages({
           'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
         }),
       full_name: Joi.string().min(2).max(100).required().trim(),
-      username: Joi.string().alphanum().min(3).max(30).required().lowercase()
+      username: Joi.string().alphanum().min(3).max(30).required().trim().lowercase()
     }),
     
     signin: Joi.object({
