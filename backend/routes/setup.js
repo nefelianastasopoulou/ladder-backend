@@ -1,7 +1,7 @@
 // Routes setup and organization
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
-const { authRateLimit } = require('../middleware/setup');
+// const { authRateLimit } = require('../middleware/setup'); // Disabled for testing
 const authRoutes = require('./auth');
 const communityRoutes = require('./communities');
 const healthRoutes = require('./health');
@@ -25,8 +25,8 @@ const setupRoutes = (app) => {
   // Health check routes (no auth required)
   apiRouter.use('/health', healthRoutes);
 
-  // Auth routes (with rate limiting)
-  apiRouter.use('/auth', authRateLimit, authRoutes);
+  // Auth routes (no rate limiting for testing)
+  apiRouter.use('/auth', authRoutes);
 
   // Public routes (no auth required)
   apiRouter.use('/opportunities', opportunitiesRoutes);

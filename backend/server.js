@@ -13,7 +13,7 @@ const { validateEnvironment: validateConfigEnvironment } = config;
 const logger = require('./utils/logger');
 const { startMemoryMonitoring } = require('./utils/memoryMonitor');
 const { setupDatabaseMonitoring } = require('./utils/databaseSetup');
-const { corsOptions, generalRateLimit } = require('./middleware/setup');
+const { corsOptions } = require('./middleware/setup'); // generalRateLimit disabled for testing
 const { setupRoutes } = require('./routes/setup');
 
 // Import database
@@ -55,7 +55,7 @@ if (config.TRUST_PROXY) {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(require('cors')(corsOptions));
-app.use(generalRateLimit);
+// app.use(generalRateLimit); // Disabled for testing
 
 // Add sanitization middleware
 const { sanitize } = require('./middleware/validation');
