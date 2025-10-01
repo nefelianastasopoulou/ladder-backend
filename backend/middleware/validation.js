@@ -12,14 +12,33 @@ const schemas = {
   // User validation
   user: {
     signup: Joi.object({
-      email: Joi.string().email().required().max(255).trim(),
+      email: Joi.string().email().required().max(255).trim()
+        .messages({
+          'string.email': 'Please enter a valid email address',
+          'string.max': 'Email address is too long (maximum 255 characters)',
+          'any.required': 'Email address is required'
+        }),
       password: Joi.string().min(8).max(128).required()
         .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
         .messages({
-          'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character'
+          'string.min': 'Password must be at least 8 characters long',
+          'string.max': 'Password is too long (maximum 128 characters)',
+          'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character (@$!%*?&)',
+          'any.required': 'Password is required'
         }),
-      full_name: Joi.string().min(2).max(100).required().trim(),
+      full_name: Joi.string().min(2).max(100).required().trim()
+        .messages({
+          'string.min': 'Full name must be at least 2 characters long',
+          'string.max': 'Full name is too long (maximum 100 characters)',
+          'any.required': 'Full name is required'
+        }),
       username: Joi.string().alphanum().min(3).max(30).required().trim().lowercase()
+        .messages({
+          'string.alphanum': 'Username can only contain letters and numbers (no spaces, underscores, or special characters)',
+          'string.min': 'Username must be at least 3 characters long',
+          'string.max': 'Username is too long (maximum 30 characters)',
+          'any.required': 'Username is required'
+        })
     }),
     
     signin: Joi.object({
