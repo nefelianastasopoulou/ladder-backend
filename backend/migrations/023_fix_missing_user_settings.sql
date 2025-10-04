@@ -10,6 +10,10 @@ CREATE TABLE IF NOT EXISTS user_settings (
   applications_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
   photo_upload_restriction VARCHAR(20) DEFAULT 'everyone',
   posts_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
+  show_activity_status BOOLEAN DEFAULT TRUE,
+  push_notifications BOOLEAN DEFAULT TRUE,
+  email_notifications BOOLEAN DEFAULT TRUE,
+  language VARCHAR(10) DEFAULT 'en',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -55,14 +59,18 @@ WHERE
   OR posts_on_profile_visibility IN ('public', 'private', 'friends');
 
 -- Insert missing user_settings records for all users who don't have them
-INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility, photo_upload_restriction, posts_on_profile_visibility)
+INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility, photo_upload_restriction, posts_on_profile_visibility, show_activity_status, push_notifications, email_notifications, language)
 SELECT 
   u.id,
   'everyone',
   'everyone', 
   'everyone',
   'everyone',
-  'everyone'
+  'everyone',
+  TRUE,
+  TRUE,
+  TRUE,
+  'en'
 FROM users u
 LEFT JOIN user_settings us ON u.id = us.user_id
 WHERE us.user_id IS NULL;
