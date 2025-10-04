@@ -121,17 +121,6 @@ const filterContentByPrivacy = async (content, viewerId, privacyField) => {
     // Check if viewer can see this content
     const canSee = await canUserSeeContent(viewerId, contentOwnerId, visibilitySetting);
     
-    // TEMPORARY DEBUG: Log privacy filtering details
-    if (item.created_by_username === 'admin' || item.created_by_name === 'admin') {
-      console.log('Admin opportunity privacy check:', {
-        contentOwnerId,
-        viewerId,
-        privacyField,
-        visibilitySetting,
-        canSee,
-        privacySettings
-      });
-    }
     
     if (canSee) {
       filteredContent.push(item);

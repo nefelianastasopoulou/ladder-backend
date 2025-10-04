@@ -30,19 +30,9 @@ router.get('/', authenticateToken, async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch opportunities' });
       }
 
-      // Filter opportunities based on privacy settings
-      const filteredOpportunities = await filterContentByPrivacy(
-        result.rows, 
-        viewerId, 
-        'opportunities_on_profile_visibility'
-      );
-
-      // TEMPORARY DEBUG: Log all opportunities and filtered results
-      console.log('Total opportunities found:', result.rows.length);
-      console.log('Filtered opportunities count:', filteredOpportunities.length);
-      console.log('Admin opportunities:', result.rows.filter(opp => opp.created_by_username === 'admin' || opp.created_by_name === 'admin'));
-
-      res.json(filteredOpportunities);
+      // Return all opportunities without privacy filtering
+      // Privacy filtering should only apply to profile pages, not the main feed
+      res.json(result.rows);
     });
   } catch (error) {
     console.error('Error in privacy filtering:', error);
