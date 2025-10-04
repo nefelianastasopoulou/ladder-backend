@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   community_posts_visibility VARCHAR(20) DEFAULT 'everyone',
   opportunities_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
   applications_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
+  photo_upload_restriction VARCHAR(20) DEFAULT 'everyone',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -46,11 +47,12 @@ WHERE
   OR applications_on_profile_visibility IN ('public', 'private', 'friends');
 
 -- Insert missing user_settings records for all users who don't have them
-INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility)
+INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility, photo_upload_restriction)
 SELECT 
   u.id,
   'everyone',
   'everyone', 
+  'everyone',
   'everyone'
 FROM users u
 LEFT JOIN user_settings us ON u.id = us.user_id
