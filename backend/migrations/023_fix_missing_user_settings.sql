@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS user_settings (
   opportunities_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
   applications_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
   photo_upload_restriction VARCHAR(20) DEFAULT 'everyone',
+  posts_on_profile_visibility VARCHAR(20) DEFAULT 'everyone',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -39,19 +40,27 @@ SET
     WHEN applications_on_profile_visibility = 'private' THEN 'none'
     WHEN applications_on_profile_visibility = 'friends' THEN 'connections'
     ELSE 'everyone'
+  END,
+  posts_on_profile_visibility = CASE 
+    WHEN posts_on_profile_visibility = 'public' THEN 'everyone'
+    WHEN posts_on_profile_visibility = 'private' THEN 'none'
+    WHEN posts_on_profile_visibility = 'friends' THEN 'connections'
+    ELSE 'everyone'
   END
 WHERE 
   photo_upload_restriction IN ('all', 'public', 'private', 'friends')
   OR community_posts_visibility IN ('public', 'private', 'friends')
   OR opportunities_on_profile_visibility IN ('public', 'private', 'friends')
-  OR applications_on_profile_visibility IN ('public', 'private', 'friends');
+  OR applications_on_profile_visibility IN ('public', 'private', 'friends')
+  OR posts_on_profile_visibility IN ('public', 'private', 'friends');
 
 -- Insert missing user_settings records for all users who don't have them
-INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility, photo_upload_restriction)
+INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility, photo_upload_restriction, posts_on_profile_visibility)
 SELECT 
   u.id,
   'everyone',
   'everyone', 
+  'everyone',
   'everyone',
   'everyone'
 FROM users u
