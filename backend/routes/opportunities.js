@@ -37,6 +37,11 @@ router.get('/', authenticateToken, async (req, res) => {
         'opportunities_on_profile_visibility'
       );
 
+      // TEMPORARY DEBUG: Log all opportunities and filtered results
+      console.log('Total opportunities found:', result.rows.length);
+      console.log('Filtered opportunities count:', filteredOpportunities.length);
+      console.log('Admin opportunities:', result.rows.filter(opp => opp.created_by_username === 'admin' || opp.created_by_name === 'admin'));
+
       res.json(filteredOpportunities);
     });
   } catch (error) {
