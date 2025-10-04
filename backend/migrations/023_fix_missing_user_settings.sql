@@ -12,6 +12,39 @@ CREATE TABLE IF NOT EXISTS user_settings (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Update existing records to fix any constraint violations
+UPDATE user_settings 
+SET 
+  photo_upload_restriction = CASE 
+    WHEN photo_upload_restriction = 'all' THEN 'everyone'
+    WHEN photo_upload_restriction = 'none' THEN 'none'
+    WHEN photo_upload_restriction = 'friends' THEN 'connections'
+    ELSE 'everyone'
+  END,
+  community_posts_visibility = CASE 
+    WHEN community_posts_visibility = 'public' THEN 'everyone'
+    WHEN community_posts_visibility = 'private' THEN 'none'
+    WHEN community_posts_visibility = 'friends' THEN 'connections'
+    ELSE 'everyone'
+  END,
+  opportunities_on_profile_visibility = CASE 
+    WHEN opportunities_on_profile_visibility = 'public' THEN 'everyone'
+    WHEN opportunities_on_profile_visibility = 'private' THEN 'none'
+    WHEN opportunities_on_profile_visibility = 'friends' THEN 'connections'
+    ELSE 'everyone'
+  END,
+  applications_on_profile_visibility = CASE 
+    WHEN applications_on_profile_visibility = 'public' THEN 'everyone'
+    WHEN applications_on_profile_visibility = 'private' THEN 'none'
+    WHEN applications_on_profile_visibility = 'friends' THEN 'connections'
+    ELSE 'everyone'
+  END
+WHERE 
+  photo_upload_restriction IN ('all', 'public', 'private', 'friends')
+  OR community_posts_visibility IN ('public', 'private', 'friends')
+  OR opportunities_on_profile_visibility IN ('public', 'private', 'friends')
+  OR applications_on_profile_visibility IN ('public', 'private', 'friends');
+
 -- Insert missing user_settings records for all users who don't have them
 INSERT INTO user_settings (user_id, community_posts_visibility, opportunities_on_profile_visibility, applications_on_profile_visibility)
 SELECT 
@@ -54,6 +87,17 @@ BEGIN
     ) THEN
         ALTER TABLE user_settings ADD CONSTRAINT check_applications_visibility_valid 
         CHECK (applications_on_profile_visibility IN ('everyone', 'connections', 'none'));
+    END IF;
+END $$;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'check_photo_upload_restriction_valid'
+    ) THEN
+        ALTER TABLE user_settings ADD CONSTRAINT check_photo_upload_restriction_valid 
+        CHECK (photo_upload_restriction IN ('everyone', 'connections', 'none'));
     END IF;
 END $$;
 
