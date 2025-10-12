@@ -17,6 +17,7 @@ const adminRoutes = require('./admin');
 const reportsRoutes = require('./reports');
 const postsRoutes = require('./posts');
 const followersRoutes = require('./followers');
+const uploadRoutes = require('./upload');
 
 const setupRoutes = (app) => {
   // API routes
@@ -43,6 +44,7 @@ const setupRoutes = (app) => {
   apiRouter.use('/reports', authenticateToken, reportsRoutes);
   apiRouter.use('/communities', authenticateToken, communityRoutes);
   apiRouter.use('/followers', authenticateToken, followersRoutes);
+  apiRouter.use('/upload', authenticateToken, uploadRoutes);
 
   // Admin routes (admin only)
   apiRouter.use('/admin', authenticateToken, requireAdmin, adminRoutes);
@@ -74,6 +76,7 @@ const setupRoutes = (app) => {
                reports: '/api/reports',
                posts: '/api/posts',
                followers: '/api/followers',
+               upload: '/api/upload',
                admin: '/api/admin'
       }
     });

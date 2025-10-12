@@ -69,7 +69,7 @@ router.get('/my', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const {
-    title, description, category, location, field, image_url,
+    title, description, category, location, field, image_url, image_key,
     deadline, requirements, contact_info, application_url, is_external_application,
     allow_questions, social_media_urls
   } = req.body;
@@ -81,18 +81,18 @@ router.post('/', authenticateToken, (req, res) => {
 
   const query = `
     INSERT INTO opportunities (
-      title, description, category, location, field, image_url,
+      title, description, category, location, field, image_url, image_key,
       deadline, requirements, contact_info, application_url, 
       is_external_application, allow_questions, social_media_urls, created_by
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
     RETURNING id, title, description, category, location, field,
-              image_url, deadline, requirements, contact_info,
+              image_url, image_key, deadline, requirements, contact_info,
               application_url, is_external_application, allow_questions, 
               social_media_urls, created_at
   `;
 
   const values = [
-    title, description, category, location, field, image_url,
+    title, description, category, location, field, image_url, image_key,
     deadline, requirements, contact_info, application_url,
     is_external_application || false, 
     allow_questions !== undefined ? allow_questions : true,
