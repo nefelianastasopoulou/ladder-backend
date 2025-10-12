@@ -7,3 +7,4 @@ ALTER TABLE user_settings DROP CONSTRAINT IF EXISTS check_language_valid;
 -- Add the new constraint with Greek language support
 ALTER TABLE user_settings ADD CONSTRAINT check_language_valid 
 CHECK (language IN ('en', 'el', 'es', 'fr', 'de', 'it', 'pt', 'ru', 'zh', 'ja', 'ko'));
+

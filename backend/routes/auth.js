@@ -448,7 +448,7 @@ router.post('/forgot-password', async (req, res) => {
 
     // Store reset token
     await db.query(
-      'INSERT INTO password_hash_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [user.rows[0].id, resetToken, expiresAt]
     );
 
@@ -480,7 +480,7 @@ router.post('/reset-password', async (req, res) => {
 
     // Find valid reset token
     const resetToken = await db.query(
-      'SELECT user_id, expires_at FROM password_hash_reset_tokens WHERE token = $1 AND expires_at > NOW()',
+      'SELECT user_id, expires_at FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
       [token]
     );
 
@@ -500,7 +500,7 @@ router.post('/reset-password', async (req, res) => {
 
     // Delete used reset token
     await db.query(
-      'DELETE FROM password_hash_reset_tokens WHERE token = $1',
+      'DELETE FROM password_reset_tokens WHERE token = $1',
       [token]
     );
 
@@ -542,7 +542,7 @@ router.put('/change-email', authenticateToken, async (req, res) => {
 
     // Store email change request
     await db.query(
-      'INSERT INTO password_hash_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
+      'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
       [req.user.id, changeToken, expiresAt]
     );
 
@@ -579,7 +579,7 @@ router.post('/verify-email-change', async (req, res) => {
 
     // Find valid change token
     const changeToken = await db.query(
-      'SELECT user_id FROM password_hash_reset_tokens WHERE token = $1 AND expires_at > NOW()',
+      'SELECT user_id FROM password_reset_tokens WHERE token = $1 AND expires_at > NOW()',
       [token]
     );
 
@@ -589,7 +589,7 @@ router.post('/verify-email-change', async (req, res) => {
 
     // Delete used token
     await db.query(
-      'DELETE FROM password_hash_reset_tokens WHERE token = $1',
+      'DELETE FROM password_reset_tokens WHERE token = $1',
       [token]
     );
 
