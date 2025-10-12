@@ -8,6 +8,7 @@ const bcrypt = require('bcryptjs');
 const { generateToken, authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validation');
 const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
+const { sendPasswordResetEmail } = require('../services/emailService');
 const logger = require('../utils/logger');
 const db = require('../database');
 
@@ -458,10 +459,19 @@ router.post('/forgot-password', async (req, res) => {
       ip: req.ip
     });
 
-    // In a real app, you would send an email here
-    sendSuccessResponse(res, 200, 'If the email exists, a password_hash reset link has been sent', {
-      resetToken: resetToken // Only for development/testing
-    });
+    // Send password reset email
+    try {
+      await sendPasswordResetEmail(user.rows[0].email, resetToken);
+      logger.info('Password reset email sent successfully', {
+        userId: user.rows[0].id,
+        email: user.rows[0].email
+      });
+    } catch (emailError) {
+      logger.error('Failed to send password reset email:', emailError);
+      // Still return success to user for security (don't reveal if email exists)
+    }
+
+    sendSuccessResponse(res, 200, 'If the email exists, a password reset link has been sent');
 
   } catch (error) {
     logger.error('Forgot password_hash failed:', error);
