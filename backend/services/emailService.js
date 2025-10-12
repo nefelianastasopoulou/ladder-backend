@@ -14,9 +14,18 @@ const createTransporter = () => {
 // Send password reset email
 const sendPasswordResetEmail = async (email, resetToken) => {
   try {
+    console.log('📧 Attempting to send password reset email...');
+    console.log('Email configuration:', {
+      user: process.env.EMAIL_USER ? '✓ Set' : '✗ Missing',
+      pass: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing',
+      frontendUrl: process.env.FRONTEND_URL || 'Not set'
+    });
+
     const transporter = createTransporter();
     
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+    const resetLink = `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`;
+    
+    console.log('Reset link:', resetLink);
     
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -30,7 +39,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
           <div style="text-align: center; margin: 30px 0;">
             <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password</a>
           </div>
-          <p>Or copy and paste this link into your browser:</p>
+          <p>Or copy and paste this link:</p>
           <p style="word-break: break-all; color: #666;">${resetLink}</p>
           <p><strong>This link will expire in 1 hour.</strong></p>
           <p>If you didn't request this password reset, please ignore this email.</p>
@@ -40,13 +49,15 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       `
     };
 
+    console.log('Sending email to:', email);
     const result = await transporter.sendMail(mailOptions);
-    console.log('Password reset email sent:', result.messageId);
+    console.log('✅ Password reset email sent successfully:', result.messageId);
     return { success: true, messageId: result.messageId };
     
   } catch (error) {
-    console.error('Failed to send password reset email:', error);
-    throw new Error('Failed to send password reset email');
+    console.error('❌ Failed to send password reset email:', error);
+    console.error('Error details:', error.message);
+    throw error;
   }
 };
 
