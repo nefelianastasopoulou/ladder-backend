@@ -1,15 +1,13 @@
 const nodemailer = require('nodemailer');
 
-// Email configuration
-const createTransporter = () => {
-  return nodemailer.createTransporter({
-    service: 'gmail', // You can change this to other services like 'outlook', 'yahoo', etc.
-    auth: {
-      user: process.env.EMAIL_USER, // Your email
-      pass: process.env.EMAIL_PASS  // Your email password or app password
-    }
-  });
-};
+// Email configuration - create transporter for sending emails
+const transporter = nodemailer.createTransport({
+  service: 'gmail', // You can change this to other services like 'outlook', 'yahoo', etc.
+  auth: {
+    user: process.env.EMAIL_USER, // Your email
+    pass: process.env.EMAIL_PASS  // Your email password or app password
+  }
+});
 
 // Send password reset email
 const sendPasswordResetEmail = async (email, resetToken) => {
@@ -20,8 +18,6 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       pass: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing',
       frontendUrl: process.env.FRONTEND_URL || 'Not set'
     });
-
-    const transporter = createTransporter();
     
     const resetLink = `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`;
     
