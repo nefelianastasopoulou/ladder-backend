@@ -66,6 +66,30 @@ const schemas = {
     
     changeEmail: Joi.object({
       new_email: Joi.string().email().required().max(255)
+    }),
+    
+    forgotPassword: Joi.object({
+      email: Joi.string().email().required().max(255).trim()
+        .messages({
+          'string.email': 'Please enter a valid email address',
+          'string.max': 'Email address is too long (maximum 255 characters)',
+          'any.required': 'Email address is required'
+        })
+    }),
+    
+    resetPassword: Joi.object({
+      token: Joi.string().required().trim()
+        .messages({
+          'any.required': 'Reset token is required'
+        }),
+      new_password: Joi.string().min(8).max(128).required()
+        .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
+        .messages({
+          'string.min': 'Password must be at least 8 characters long',
+          'string.max': 'Password is too long (maximum 128 characters)',
+          'string.pattern.base': 'Password must contain at least one lowercase letter, one uppercase letter, one number, and one special character (@$!%*?&)',
+          'any.required': 'New password is required'
+        })
     })
   },
   

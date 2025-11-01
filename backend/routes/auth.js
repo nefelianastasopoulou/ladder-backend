@@ -8,7 +8,7 @@ const bcrypt = require('bcryptjs');
 const { generateToken, authenticateToken, requireAdmin } = require('../middleware/auth');
 const { validate, schemas } = require('../middleware/validation');
 const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
-const { sendPasswordResetEmail } = require('../services/emailService');
+const { sendPasswordResetEmail, isEmailConfigured } = require('../services/emailService');
 const logger = require('../utils/logger');
 const db = require('../database');
 
@@ -424,13 +424,9 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
 });
 
 // Forgot password_hash
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validate(schemas.user.forgotPassword), async (req, res) => {
   try {
     const { email } = req.body;
-
-    if (!email) {
-      return sendErrorResponse(res, 400, 'Email is required');
-    }
 
     // Check if user exists
     const user = await db.query(
@@ -456,22 +452,70 @@ router.post('/forgot-password', async (req, res) => {
     logger.info('Password reset token generated', {
       userId: user.rows[0].id,
       email: user.rows[0].email,
-      ip: req.ip
+      ip: req.ip,
+      token: resetToken.substring(0, 10) + '...' // Log partial token for debugging
     });
 
-    // Send password reset email
-    try {
-      await sendPasswordResetEmail(user.rows[0].email, resetToken);
-      logger.info('Password reset email sent successfully', {
-        userId: user.rows[0].id,
-        email: user.rows[0].email
-      });
-    } catch (emailError) {
-      logger.error('Failed to send password reset email:', emailError);
-      // Still return success to user for security (don't reveal if email exists)
-    }
-
+    // Send response immediately, don't wait for email
     sendSuccessResponse(res, 200, 'If the email exists, a password reset link has been sent');
+
+    // Send email asynchronously (non-blocking)
+    // This prevents the API from timing out if email sending takes time or fails
+    setImmediate(async () => {
+      // Check if email is configured before attempting to send
+      if (!isEmailConfigured()) {
+        logger.error('Email service not configured - cannot send password reset email', {
+          userId: user.rows[0].id,
+          email: user.rows[0].email,
+          EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
+          EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing'
+        });
+        
+        // In development mode, log the token so developers can test
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('DEVELOPMENT MODE: Password reset token generated but email not sent', {
+            userId: user.rows[0].id,
+            email: user.rows[0].email,
+            resetToken: resetToken,
+            resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
+          });
+        }
+      } else {
+        // Send password reset email (with timeout)
+        try {
+          // Add timeout to email sending (10 seconds max)
+          const emailPromise = sendPasswordResetEmail(user.rows[0].email, resetToken);
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('Email sending timeout')), 10000);
+          });
+          
+          await Promise.race([emailPromise, timeoutPromise]);
+          
+          logger.info('Password reset email sent successfully', {
+            userId: user.rows[0].id,
+            email: user.rows[0].email
+          });
+        } catch (emailError) {
+          logger.error('Failed to send password reset email:', {
+            userId: user.rows[0].id,
+            email: user.rows[0].email,
+            error: emailError.message,
+            code: emailError.code,
+            stack: emailError.stack
+          });
+          
+          // In development mode, log the token so developers can test even if email fails
+          if (process.env.NODE_ENV !== 'production') {
+            logger.warn('DEVELOPMENT MODE: Password reset token (email failed but token available for testing)', {
+              userId: user.rows[0].id,
+              email: user.rows[0].email,
+              resetToken: resetToken,
+              resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
+            });
+          }
+        }
+      }
+    });
 
   } catch (error) {
     logger.error('Forgot password_hash failed:', error);
@@ -480,13 +524,9 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // Reset password_hash
-router.post('/reset-password', async (req, res) => {
+router.post('/reset-password', validate(schemas.user.resetPassword), async (req, res) => {
   try {
     const { token, new_password } = req.body;
-
-    if (!token || !new_password) {
-      return sendErrorResponse(res, 400, 'Token and new password are required');
-    }
 
     // Find valid reset token
     const resetToken = await db.query(
