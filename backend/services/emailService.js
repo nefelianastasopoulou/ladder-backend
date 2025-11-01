@@ -1,18 +1,40 @@
 const nodemailer = require('nodemailer');
 
-// Email configuration - create transporter for sending emails
-const transporter = nodemailer.createTransport({
-  service: 'gmail', // You can change this to other services like 'outlook', 'yahoo', etc.
-  auth: {
-    user: process.env.EMAIL_USER, // Your email
-    pass: process.env.EMAIL_PASS  // Your email password or app password
+// Check if email is configured
+const isEmailConfigured = () => {
+  return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
+};
+
+// Get email transporter - only create if credentials are available
+const getTransporter = () => {
+  if (!isEmailConfigured()) {
+    throw new Error('Email service not configured: EMAIL_USER and EMAIL_PASS environment variables are required');
   }
-});
+
+  return nodemailer.createTransport({
+    service: 'gmail', // You can change this to other services like 'outlook', 'yahoo', etc.
+    auth: {
+      user: process.env.EMAIL_USER, // Your email
+      pass: process.env.EMAIL_PASS  // Your email password or app password
+    }
+  });
+};
 
 // Send password reset email
 const sendPasswordResetEmail = async (email, resetToken) => {
   try {
     console.log('📧 Attempting to send password reset email...');
+    
+    // Check configuration first
+    if (!isEmailConfigured()) {
+      const error = new Error('Email service not configured. Please set EMAIL_USER and EMAIL_PASS environment variables.');
+      console.error('❌ Email configuration missing:', {
+        EMAIL_USER: process.env.EMAIL_USER ? '✓ Set' : '✗ Missing',
+        EMAIL_PASS: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing'
+      });
+      throw error;
+    }
+
     console.log('Email configuration:', {
       user: process.env.EMAIL_USER ? '✓ Set' : '✗ Missing',
       pass: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing',
@@ -22,6 +44,25 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     const resetLink = `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`;
     
     console.log('Reset link:', resetLink);
+    
+    // Get transporter
+    const transporter = getTransporter();
+    
+    // Verify transporter connection (with timeout)
+    try {
+      const verifyPromise = transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Email verification timeout')), 5000);
+      });
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
+      console.log('✅ Email transporter verified successfully');
+    } catch (verifyError) {
+      console.error('❌ Email transporter verification failed:', verifyError);
+      // Don't throw here - continue with sending attempt
+      // Some email providers might still work even if verify fails
+      console.warn('⚠️ Continuing with email send despite verification failure');
+    }
     
     const mailOptions = {
       from: process.env.EMAIL_USER,
@@ -52,11 +93,17 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     
   } catch (error) {
     console.error('❌ Failed to send password reset email:', error);
-    console.error('Error details:', error.message);
+    console.error('Error details:', {
+      message: error.message,
+      code: error.code,
+      command: error.command,
+      response: error.response
+    });
     throw error;
   }
 };
 
 module.exports = {
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  isEmailConfigured
 };
