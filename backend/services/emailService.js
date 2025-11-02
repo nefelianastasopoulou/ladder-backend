@@ -11,12 +11,24 @@ const getTransporter = () => {
     throw new Error('Email service not configured: EMAIL_USER and EMAIL_PASS environment variables are required');
   }
 
+  // Use explicit SMTP configuration for Gmail (more reliable than 'service: gmail')
+  // Gmail SMTP settings
   return nodemailer.createTransport({
-    service: 'gmail', // You can change this to other services like 'outlook', 'yahoo', etc.
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // true for 465, false for other ports
     auth: {
-      user: process.env.EMAIL_USER, // Your email
-      pass: process.env.EMAIL_PASS  // Your email password or app password
-    }
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS // Must be an App Password, not regular password
+    },
+    // Add connection timeout
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
+    // Retry configuration
+    pool: true,
+    maxConnections: 1,
+    maxMessages: 3
   });
 };
 
@@ -48,7 +60,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     // Get transporter
     const transporter = getTransporter();
     
-    // Verify transporter connection (with timeout)
+    // Verify transporter connection (with timeout) - but don't block if it fails
     try {
       const verifyPromise = transporter.verify();
       const timeoutPromise = new Promise((_, reject) => {
@@ -58,7 +70,12 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       await Promise.race([verifyPromise, timeoutPromise]);
       console.log('✅ Email transporter verified successfully');
     } catch (verifyError) {
-      console.error('❌ Email transporter verification failed:', verifyError);
+      console.error('❌ Email transporter verification failed:', {
+        message: verifyError.message,
+        code: verifyError.code,
+        command: verifyError.command,
+        response: verifyError.response
+      });
       // Don't throw here - continue with sending attempt
       // Some email providers might still work even if verify fails
       console.warn('⚠️ Continuing with email send despite verification failure');
@@ -87,8 +104,18 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     };
 
     console.log('Sending email to:', email);
-    const result = await transporter.sendMail(mailOptions);
+    console.log('From email:', process.env.EMAIL_USER);
+    
+    // Send email with explicit timeout
+    const sendPromise = transporter.sendMail(mailOptions);
+    const sendTimeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Email send timeout after 15 seconds')), 15000);
+    });
+    
+    const result = await Promise.race([sendPromise, sendTimeoutPromise]);
+    
     console.log('✅ Password reset email sent successfully:', result.messageId);
+    console.log('Email response:', result.response);
     return { success: true, messageId: result.messageId };
     
   } catch (error) {
