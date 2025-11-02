@@ -194,8 +194,15 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       message: error.message,
       code: error.code,
       command: error.command,
-      response: error.response
+      response: error.response,
+      responseCode: error.responseCode,
+      responseMessage: error.responseMessage,
+      stack: error.stack
     });
+    
+    // Log full error object for debugging
+    console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
+    
     throw error;
   }
 };

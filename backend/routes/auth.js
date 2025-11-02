@@ -483,10 +483,16 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
       } else {
         // Send password reset email (with timeout)
         try {
-          // Add timeout to email sending (10 seconds max)
+          logger.info('Attempting to send password reset email', {
+            userId: user.rows[0].id,
+            email: user.rows[0].email,
+            emailUser: process.env.EMAIL_USER
+          });
+          
+          // Add timeout to email sending (15 seconds max)
           const emailPromise = sendPasswordResetEmail(user.rows[0].email, resetToken);
           const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Email sending timeout')), 10000);
+            setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
           });
           
           await Promise.race([emailPromise, timeoutPromise]);
@@ -496,12 +502,29 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
             email: user.rows[0].email
           });
         } catch (emailError) {
-          logger.error('Failed to send password reset email:', {
+          // Log FULL error details including nested properties
+          logger.error('Failed to send password reset email - DETAILED ERROR:', {
             userId: user.rows[0].id,
             email: user.rows[0].email,
-            error: emailError.message,
+            emailUser: process.env.EMAIL_USER,
+            errorMessage: emailError.message,
+            errorCode: emailError.code,
+            errorCommand: emailError.command,
+            errorResponse: emailError.response,
+            errorResponseCode: emailError.responseCode,
+            errorResponseMessage: emailError.responseMessage,
+            errorStack: emailError.stack,
+            fullError: JSON.stringify(emailError, Object.getOwnPropertyNames(emailError))
+          });
+          
+          // Also log to console for immediate visibility
+          console.error('❌ EMAIL SEND FAILED:', {
+            message: emailError.message,
             code: emailError.code,
-            stack: emailError.stack
+            command: emailError.command,
+            response: emailError.response,
+            responseCode: emailError.responseCode,
+            responseMessage: emailError.responseMessage
           });
           
           // In development mode, log the token so developers can test even if email fails
