@@ -5,21 +5,91 @@ const isEmailConfigured = () => {
   return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 };
 
+// Detect email provider and get SMTP settings
+const getSMTPConfig = () => {
+  const emailUser = process.env.EMAIL_USER || '';
+  const emailDomain = emailUser.split('@')[1]?.toLowerCase() || '';
+  
+  // Allow custom SMTP configuration via environment variables
+  if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
+    return {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT, 10),
+      secure: process.env.SMTP_SECURE === 'true' || parseInt(process.env.SMTP_PORT, 10) === 465,
+    };
+  }
+  
+  // Auto-detect based on email domain
+  if (emailDomain === 'gmail.com' || emailDomain.endsWith('.gmail.com')) {
+    // Gmail SMTP
+    return {
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+    };
+  } else if (emailDomain.includes('google') || emailDomain.includes('gsuite') || emailDomain.includes('googlemail')) {
+    // Google Workspace (custom domain with Google)
+    return {
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+    };
+  } else if (emailDomain.includes('outlook') || emailDomain.includes('hotmail') || emailDomain.includes('live') || emailDomain.includes('msn')) {
+    // Microsoft Outlook/Hotmail
+    return {
+      host: 'smtp-mail.outlook.com',
+      port: 587,
+      secure: false,
+    };
+  } else if (emailDomain.includes('yahoo')) {
+    // Yahoo
+    return {
+      host: 'smtp.mail.yahoo.com',
+      port: 587,
+      secure: false,
+    };
+  } else if (emailDomain.includes('office365') || emailDomain.includes('microsoft')) {
+    // Microsoft 365
+    return {
+      host: 'smtp.office365.com',
+      port: 587,
+      secure: false,
+    };
+  } else {
+    // Default: Try Google Workspace SMTP (many custom domains use Google Workspace)
+    // If this doesn't work, user should set SMTP_HOST and SMTP_PORT env vars
+    return {
+      host: 'smtp.gmail.com', // Google Workspace uses Gmail SMTP
+      port: 587,
+      secure: false,
+    };
+  }
+};
+
 // Get email transporter - only create if credentials are available
 const getTransporter = () => {
   if (!isEmailConfigured()) {
     throw new Error('Email service not configured: EMAIL_USER and EMAIL_PASS environment variables are required');
   }
 
-  // Use explicit SMTP configuration for Gmail (more reliable than 'service: gmail')
-  // Gmail SMTP settings
+  const smtpConfig = getSMTPConfig();
+  const emailUser = process.env.EMAIL_USER || '';
+  
+  console.log('Email configuration detected:', {
+    domain: emailUser.split('@')[1],
+    smtpHost: smtpConfig.host,
+    smtpPort: smtpConfig.port,
+    secure: smtpConfig.secure,
+    usingCustomSMTP: !!(process.env.SMTP_HOST && process.env.SMTP_PORT)
+  });
+
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, // true for 465, false for other ports
+    host: smtpConfig.host,
+    port: smtpConfig.port,
+    secure: smtpConfig.secure, // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS // Must be an App Password, not regular password
+      pass: process.env.EMAIL_PASS
     },
     // Add connection timeout
     connectionTimeout: 10000,
