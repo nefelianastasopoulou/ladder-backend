@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const fetch = require('node-fetch');
 
 // Check if email is configured
 // For SendGrid, EMAIL_USER is "apikey" and EMAIL_PASS is the API key
@@ -135,6 +136,41 @@ const getTransporter = () => {
   return nodemailer.createTransport(transporterConfig);
 };
 
+// Send email via SendGrid API (when EMAIL_USER is "apikey")
+const sendViaSendGridAPI = async (to, from, subject, html) => {
+  const apiKey = process.env.EMAIL_PASS;
+  
+  if (!apiKey) {
+    throw new Error('EMAIL_PASS (SendGrid API key) is required');
+  }
+
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      personalizations: [{
+        to: [{ email: to }]
+      }],
+      from: { email: from },
+      subject: subject,
+      content: [{
+        type: 'text/html',
+        value: html
+      }]
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`SendGrid API error: ${response.status} ${response.statusText} - ${errorText}`);
+  }
+
+  return { success: true };
+};
+
 // Send password reset email
 const sendPasswordResetEmail = async (email, resetToken) => {
   try {
@@ -150,18 +186,56 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       throw error;
     }
 
+    // Use EMAIL_FROM if set, otherwise fall back to EMAIL_USER
+    // For SendGrid, EMAIL_USER is "apikey" so we need EMAIL_FROM
+    const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    
+    if (!fromEmail || fromEmail === 'apikey') {
+      throw new Error('EMAIL_FROM environment variable must be set. For SendGrid, set EMAIL_FROM to your sender email (e.g., contact@ladderyouth.com)');
+    }
+
     console.log('Email configuration:', {
       user: process.env.EMAIL_USER ? '✓ Set' : '✗ Missing',
       pass: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing',
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'Not set',
-      frontendUrl: process.env.FRONTEND_URL || 'Not set'
+      from: fromEmail,
+      frontendUrl: process.env.FRONTEND_URL || 'Not set',
+      usingSendGridAPI: process.env.EMAIL_USER === 'apikey'
     });
     
     const resetLink = `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`;
     
     console.log('Reset link:', resetLink);
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4f46e5;">Password Reset Request</h2>
+        <p>You requested a password reset for your Ladder account.</p>
+        <p>Click the button below to reset your password:</p>
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password</a>
+        </div>
+        <p>Or copy and paste this link:</p>
+        <p style="word-break: break-all; color: #666;">${resetLink}</p>
+        <p><strong>This link will expire in 1 hour.</strong></p>
+        <p>If you didn't request this password reset, please ignore this email.</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #666; font-size: 12px;">This email was sent from Ladder App. Please do not reply to this email.</p>
+      </div>
+    `;
+
+    console.log('Sending email to:', email);
+    console.log('From email:', fromEmail);
     
-    // Get transporter
+    // Use SendGrid API if EMAIL_USER is "apikey" (avoids SMTP port blocking)
+    if (process.env.EMAIL_USER === 'apikey') {
+      console.log('📧 Using SendGrid API (HTTPS) instead of SMTP to avoid port blocking...');
+      const result = await sendViaSendGridAPI(email, fromEmail, 'Password Reset - Ladder App', htmlContent);
+      console.log('✅ Password reset email sent successfully via SendGrid API');
+      return result;
+    }
+    
+    // Otherwise, use SMTP for other providers
+    console.log('📧 Using SMTP transport...');
     const transporter = getTransporter();
     
     // Verify transporter connection (with timeout) - but don't block if it fails
@@ -198,7 +272,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
         console.error('   - Google Workspace: smtp.gmail.com:587');
         console.error('   - Microsoft 365: smtp.office365.com:587');
         console.error('   - Zoho: smtp.zoho.com:587');
-        console.error('   - SendGrid: smtp.sendgrid.net:587');
+        console.error('   - SendGrid: Use EMAIL_USER=apikey to use API instead of SMTP');
         console.error('   - Mailgun: smtp.mailgun.org:587');
         throw new Error(`SMTP connection timeout. Please configure SMTP_HOST and SMTP_PORT for ${emailDomain}. See logs for details.`);
       }
@@ -208,38 +282,12 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       console.warn('⚠️ Continuing with email send despite verification failure');
     }
     
-    // Use EMAIL_FROM if set, otherwise fall back to EMAIL_USER
-    // For SendGrid, EMAIL_USER is "apikey" so we need EMAIL_FROM
-    const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-    
-    if (!fromEmail || fromEmail === 'apikey') {
-      throw new Error('EMAIL_FROM environment variable must be set. For SendGrid, set EMAIL_FROM to your sender email (e.g., contact@ladderyouth.com)');
-    }
-    
     const mailOptions = {
       from: fromEmail,
       to: email,
       subject: 'Password Reset - Ladder App',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #4f46e5;">Password Reset Request</h2>
-          <p>You requested a password reset for your Ladder account.</p>
-          <p>Click the button below to reset your password:</p>
-          <div style="text-align: center; margin: 30px 0;">
-            <a href="${resetLink}" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block;">Reset Password</a>
-          </div>
-          <p>Or copy and paste this link:</p>
-          <p style="word-break: break-all; color: #666;">${resetLink}</p>
-          <p><strong>This link will expire in 1 hour.</strong></p>
-          <p>If you didn't request this password reset, please ignore this email.</p>
-          <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
-          <p style="color: #666; font-size: 12px;">This email was sent from Ladder App. Please do not reply to this email.</p>
-        </div>
-      `
+      html: htmlContent
     };
-
-    console.log('Sending email to:', email);
-    console.log('From email:', fromEmail);
     
     // Send email with explicit timeout
     const sendPromise = transporter.sendMail(mailOptions);
