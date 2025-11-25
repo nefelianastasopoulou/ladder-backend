@@ -1,6 +1,8 @@
 const nodemailer = require('nodemailer');
 
 // Check if email is configured
+// For SendGrid, EMAIL_USER is "apikey" and EMAIL_PASS is the API key
+// EMAIL_FROM is the actual sender email address
 const isEmailConfigured = () => {
   return !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
 };
@@ -151,6 +153,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     console.log('Email configuration:', {
       user: process.env.EMAIL_USER ? '✓ Set' : '✗ Missing',
       pass: process.env.EMAIL_PASS ? '✓ Set' : '✗ Missing',
+      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'Not set',
       frontendUrl: process.env.FRONTEND_URL || 'Not set'
     });
     
@@ -205,8 +208,16 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       console.warn('⚠️ Continuing with email send despite verification failure');
     }
     
+    // Use EMAIL_FROM if set, otherwise fall back to EMAIL_USER
+    // For SendGrid, EMAIL_USER is "apikey" so we need EMAIL_FROM
+    const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+    
+    if (!fromEmail || fromEmail === 'apikey') {
+      throw new Error('EMAIL_FROM environment variable must be set. For SendGrid, set EMAIL_FROM to your sender email (e.g., contact@ladderyouth.com)');
+    }
+    
     const mailOptions = {
-      from: process.env.EMAIL_USER,
+      from: fromEmail,
       to: email,
       subject: 'Password Reset - Ladder App',
       html: `
@@ -228,7 +239,7 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     };
 
     console.log('Sending email to:', email);
-    console.log('From email:', process.env.EMAIL_USER);
+    console.log('From email:', fromEmail);
     
     // Send email with explicit timeout
     const sendPromise = transporter.sendMail(mailOptions);
