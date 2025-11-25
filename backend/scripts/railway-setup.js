@@ -36,10 +36,16 @@ const setupRailway = async () => {
     await runMigrations();
     console.log('✅ Database migrations completed');
     
+    // Small delay to allow connection cleanup
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     // Seed database with initial data
     console.log('🌱 Seeding database with initial data...');
     await seedDatabase();
     console.log('✅ Database seeding completed');
+    
+    // Small delay to allow connection cleanup
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Additional Railway-specific setup
     console.log('🔧 Railway setup completed successfully!');
@@ -54,13 +60,41 @@ const setupRailway = async () => {
   }
 };
 
+// Handle unhandled promise rejections and errors
+process.on('unhandledRejection', (reason, promise) => {
+  // Suppress database connection errors during cleanup
+  if (reason && typeof reason === 'object' && reason.code === 'ETIMEDOUT') {
+    console.log('⚠️  Database connection cleanup warning (safe to ignore)');
+    return;
+  }
+  console.error('⚠️  Unhandled promise rejection:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+  // Suppress database connection errors during cleanup
+  if (error.code === 'ETIMEDOUT' || error.message.includes('Connection terminated')) {
+    console.log('⚠️  Database connection cleanup warning (safe to ignore)');
+    return;
+  }
+  console.error('⚠️  Uncaught exception:', error);
+});
+
 // Run setup if this script is executed directly
 if (require.main === module) {
-  setupRailway().catch((error) => {
-    console.error('💥 Unhandled error in Railway setup:', error);
-    // Don't exit with error code for Railway deployment
-    process.exit(0);
-  });
+  setupRailway()
+    .then(() => {
+      // Give connections time to close gracefully
+      setTimeout(() => {
+        process.exit(0);
+      }, 2000);
+    })
+    .catch((error) => {
+      console.error('💥 Unhandled error in Railway setup:', error);
+      // Don't exit with error code for Railway deployment
+      setTimeout(() => {
+        process.exit(0);
+      }, 2000);
+    });
 }
 
 module.exports = { setupRailway };

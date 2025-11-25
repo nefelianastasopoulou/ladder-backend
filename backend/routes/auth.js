@@ -462,80 +462,85 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
     // Send email asynchronously (non-blocking)
     // This prevents the API from timing out if email sending takes time or fails
     setImmediate(async () => {
-      // Check if email is configured before attempting to send
-      if (!isEmailConfigured()) {
-        logger.error('Email service not configured - cannot send password reset email', {
-          userId: user.rows[0].id,
-          email: user.rows[0].email,
-          EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
-          EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing'
-        });
-        
-        // In development mode, log the token so developers can test
-        if (process.env.NODE_ENV !== 'production') {
-          logger.warn('DEVELOPMENT MODE: Password reset token generated but email not sent', {
+      try {
+        // Check if email is configured before attempting to send
+        if (!isEmailConfigured()) {
+          logger.error('Email service not configured - cannot send password reset email', {
             userId: user.rows[0].id,
             email: user.rows[0].email,
-            resetToken: resetToken,
-            resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
-          });
-        }
-      } else {
-        // Send password reset email (with timeout)
-        try {
-          logger.info('Attempting to send password reset email', {
-            userId: user.rows[0].id,
-            email: user.rows[0].email,
-            emailUser: process.env.EMAIL_USER
+            EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
+            EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing'
           });
           
-          // Add timeout to email sending (15 seconds max)
-          const emailPromise = sendPasswordResetEmail(user.rows[0].email, resetToken);
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
-          });
-          
-          await Promise.race([emailPromise, timeoutPromise]);
-          
-          logger.info('Password reset email sent successfully', {
-            userId: user.rows[0].id,
-            email: user.rows[0].email
-          });
-        } catch (emailError) {
-          // Log FULL error details including nested properties
-          logger.error('Failed to send password reset email - DETAILED ERROR:', {
-            userId: user.rows[0].id,
-            email: user.rows[0].email,
-            emailUser: process.env.EMAIL_USER,
-            errorMessage: emailError.message,
-            errorCode: emailError.code,
-            errorCommand: emailError.command,
-            errorResponse: emailError.response,
-            errorResponseCode: emailError.responseCode,
-            errorResponseMessage: emailError.responseMessage,
-            errorStack: emailError.stack,
-            fullError: JSON.stringify(emailError, Object.getOwnPropertyNames(emailError))
-          });
-          
-          // Also log to console for immediate visibility
-          console.error('❌ EMAIL SEND FAILED:', {
-            message: emailError.message,
-            code: emailError.code,
-            command: emailError.command,
-            response: emailError.response,
-            responseCode: emailError.responseCode,
-            responseMessage: emailError.responseMessage
-          });
-          
-          // In development mode, log the token so developers can test even if email fails
+          // In development mode, log the token so developers can test
           if (process.env.NODE_ENV !== 'production') {
-            logger.warn('DEVELOPMENT MODE: Password reset token (email failed but token available for testing)', {
+            logger.warn('DEVELOPMENT MODE: Password reset token generated but email not sent', {
               userId: user.rows[0].id,
               email: user.rows[0].email,
               resetToken: resetToken,
               resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
             });
           }
+          return;
+        }
+
+        // Send password reset email (with timeout)
+        logger.info('Attempting to send password reset email', {
+          userId: user.rows[0].id,
+          email: user.rows[0].email,
+          emailUser: process.env.EMAIL_USER,
+          emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown'
+        });
+        
+        // Add timeout to email sending (15 seconds max)
+        const emailPromise = sendPasswordResetEmail(user.rows[0].email, resetToken);
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
+        });
+        
+        await Promise.race([emailPromise, timeoutPromise]);
+        
+        logger.info('Password reset email sent successfully', {
+          userId: user.rows[0].id,
+          email: user.rows[0].email
+        });
+      } catch (emailError) {
+        // Log FULL error details including nested properties
+        logger.error('Failed to send password reset email - DETAILED ERROR:', {
+          userId: user.rows[0].id,
+          email: user.rows[0].email,
+          emailUser: process.env.EMAIL_USER,
+          emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown',
+          errorMessage: emailError.message,
+          errorCode: emailError.code,
+          errorCommand: emailError.command,
+          errorResponse: emailError.response,
+          errorResponseCode: emailError.responseCode,
+          errorResponseMessage: emailError.responseMessage,
+          errorStack: emailError.stack,
+          fullError: JSON.stringify(emailError, Object.getOwnPropertyNames(emailError))
+        });
+        
+        // Also log to console for immediate visibility in Railway logs
+        console.error('❌ EMAIL SEND FAILED:', {
+          message: emailError.message,
+          code: emailError.code,
+          command: emailError.command,
+          response: emailError.response,
+          responseCode: emailError.responseCode,
+          responseMessage: emailError.responseMessage,
+          emailUser: process.env.EMAIL_USER,
+          emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown'
+        });
+        
+        // In development mode, log the token so developers can test even if email fails
+        if (process.env.NODE_ENV !== 'production') {
+          logger.warn('DEVELOPMENT MODE: Password reset token (email failed but token available for testing)', {
+            userId: user.rows[0].id,
+            email: user.rows[0].email,
+            resetToken: resetToken,
+            resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
+          });
         }
       }
     });
@@ -766,6 +771,105 @@ router.post('/make-admin', authenticateToken, requireAdmin, async (req, res) => 
   } catch (error) {
     logger.error('Make admin failed:', error);
     sendErrorResponse(res, 500, 'Failed to promote user to admin');
+  }
+});
+
+/**
+ * Test Email Configuration (for debugging)
+ * GET /api/auth/test-email
+ * Returns email configuration status
+ */
+router.get('/test-email', async (req, res) => {
+  try {
+    const emailConfig = {
+      isConfigured: isEmailConfigured(),
+      emailUser: process.env.EMAIL_USER ? 'Set' : 'Missing',
+      emailPass: process.env.EMAIL_PASS ? 'Set' : 'Missing',
+      emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'N/A',
+      frontendUrl: process.env.FRONTEND_URL || 'Not set',
+      smtpHost: null,
+      smtpPort: null
+    };
+
+    if (isEmailConfigured()) {
+      try {
+        // Determine SMTP config based on email domain
+        const emailUser = process.env.EMAIL_USER || '';
+        const emailDomain = emailUser.split('@')[1]?.toLowerCase() || '';
+        
+        if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
+          emailConfig.smtpHost = process.env.SMTP_HOST;
+          emailConfig.smtpPort = parseInt(process.env.SMTP_PORT, 10);
+        } else if (emailDomain === 'gmail.com' || emailDomain.endsWith('.gmail.com')) {
+          emailConfig.smtpHost = 'smtp.gmail.com';
+          emailConfig.smtpPort = 587;
+        } else if (emailDomain.includes('outlook') || emailDomain.includes('hotmail') || emailDomain.includes('live')) {
+          emailConfig.smtpHost = 'smtp-mail.outlook.com';
+          emailConfig.smtpPort = 587;
+        } else {
+          emailConfig.smtpHost = 'smtp.gmail.com'; // default
+          emailConfig.smtpPort = 587;
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    sendSuccessResponse(res, 200, 'Email configuration status', emailConfig);
+  } catch (error) {
+    logger.error('Email test failed:', error);
+    sendErrorResponse(res, 500, 'Failed to test email configuration');
+  }
+});
+
+/**
+ * Send Test Email (for debugging)
+ * POST /api/auth/test-email-send
+ * Body: { email: "test@example.com" }
+ * Sends a test email to verify email service is working
+ */
+router.post('/test-email-send', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return sendErrorResponse(res, 400, 'Email address is required');
+    }
+
+    if (!isEmailConfigured()) {
+      return sendErrorResponse(res, 400, 'Email service not configured. EMAIL_USER and EMAIL_PASS must be set.');
+    }
+
+    logger.info('Test email send requested', { email });
+
+    // Generate a test token
+    const testToken = require('crypto').randomBytes(32).toString('hex');
+    
+    try {
+      await sendPasswordResetEmail(email, testToken);
+      
+      logger.info('Test email sent successfully', { email });
+      sendSuccessResponse(res, 200, 'Test email sent successfully. Check your inbox (and spam folder).', {
+        email,
+        testToken: process.env.NODE_ENV !== 'production' ? testToken : undefined // Only show token in dev
+      });
+    } catch (emailError) {
+      logger.error('Test email send failed', {
+        email,
+        error: emailError.message,
+        code: emailError.code,
+        response: emailError.response
+      });
+      
+      sendErrorResponse(res, 500, 'Failed to send test email', {
+        error: emailError.message,
+        code: emailError.code,
+        hint: emailError.code === 'EAUTH' ? 'Authentication failed. For Gmail, make sure you\'re using an App Password, not your regular password.' : undefined
+      });
+    }
+  } catch (error) {
+    logger.error('Test email endpoint failed:', error);
+    sendErrorResponse(res, 500, 'Failed to process test email request');
   }
 });
 

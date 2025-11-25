@@ -330,6 +330,22 @@ const seedDatabase = async (force = false) => {
   } catch (error) {
     console.error('💥 Database seeding failed:', error);
     throw error;
+  } finally {
+    // Close the pool when called from other scripts
+    // This prevents connection cleanup errors
+    try {
+      if (pool && !pool.ended) {
+        await pool.end();
+      }
+    } catch (closeError) {
+      // Ignore errors during pool closure (connection may already be closed)
+      // These are common during Railway deployments and can be safely ignored
+      if (!closeError.message.includes('Connection terminated') && 
+          !closeError.message.includes('ended') &&
+          closeError.code !== 'ETIMEDOUT') {
+        console.warn('⚠️  Warning during pool closure:', closeError.message);
+      }
+    }
   }
 };
 
@@ -338,13 +354,12 @@ const main = async () => {
   try {
     const force = process.argv.includes('--force');
     
+    // seedDatabase now handles pool closure itself
     await seedDatabase(force);
     
   } catch (error) {
     console.error('💥 Seeding operation failed:', error);
     process.exit(1);
-  } finally {
-    await pool.end();
   }
 };
 

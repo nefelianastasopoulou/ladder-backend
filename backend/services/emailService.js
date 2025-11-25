@@ -10,8 +10,12 @@ const getSMTPConfig = () => {
   const emailUser = process.env.EMAIL_USER || '';
   const emailDomain = emailUser.split('@')[1]?.toLowerCase() || '';
   
-  // Allow custom SMTP configuration via environment variables
+  // Allow custom SMTP configuration via environment variables (PRIORITY)
   if (process.env.SMTP_HOST && process.env.SMTP_PORT) {
+    console.log('Using custom SMTP configuration:', {
+      host: process.env.SMTP_HOST,
+      port: parseInt(process.env.SMTP_PORT, 10)
+    });
     return {
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT, 10),
@@ -22,13 +26,6 @@ const getSMTPConfig = () => {
   // Auto-detect based on email domain
   if (emailDomain === 'gmail.com' || emailDomain.endsWith('.gmail.com')) {
     // Gmail SMTP
-    return {
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-    };
-  } else if (emailDomain.includes('google') || emailDomain.includes('gsuite') || emailDomain.includes('googlemail')) {
-    // Google Workspace (custom domain with Google)
     return {
       host: 'smtp.gmail.com',
       port: 587,
@@ -56,10 +53,18 @@ const getSMTPConfig = () => {
       secure: false,
     };
   } else {
-    // Default: Try Google Workspace SMTP (many custom domains use Google Workspace)
-    // If this doesn't work, user should set SMTP_HOST and SMTP_PORT env vars
+    // For custom domains, we can't auto-detect
+    // Default to Gmail SMTP ONLY if it's likely Google Workspace
+    // Otherwise, user MUST set SMTP_HOST and SMTP_PORT
+    console.warn('⚠️ Custom domain detected without SMTP configuration. Attempting Gmail SMTP (for Google Workspace).');
+    console.warn('⚠️ If this fails, you MUST set SMTP_HOST and SMTP_PORT environment variables.');
+    console.warn('⚠️ For non-Google Workspace emails, set:');
+    console.warn('   SMTP_HOST=your-smtp-server.com');
+    console.warn('   SMTP_PORT=587 (or 465 for SSL)');
+    console.warn('   SMTP_SECURE=false (or true for port 465)');
+    
     return {
-      host: 'smtp.gmail.com', // Google Workspace uses Gmail SMTP
+      host: 'smtp.gmail.com', // Only works if it's Google Workspace
       port: 587,
       secure: false,
     };
@@ -72,6 +77,15 @@ const getTransporter = () => {
     throw new Error('Email service not configured: EMAIL_USER and EMAIL_PASS environment variables are required');
   }
 
+  // Debug: Log all SMTP-related environment variables
+  console.log('🔍 SMTP Environment Variables Check:', {
+    SMTP_HOST: process.env.SMTP_HOST || 'NOT SET',
+    SMTP_PORT: process.env.SMTP_PORT || 'NOT SET',
+    SMTP_SECURE: process.env.SMTP_SECURE || 'NOT SET',
+    EMAIL_USER: process.env.EMAIL_USER ? 'SET' : 'NOT SET',
+    EMAIL_PASS: process.env.EMAIL_PASS ? 'SET' : 'NOT SET'
+  });
+
   const smtpConfig = getSMTPConfig();
   const emailUser = process.env.EMAIL_USER || '';
   
@@ -83,7 +97,7 @@ const getTransporter = () => {
     usingCustomSMTP: !!(process.env.SMTP_HOST && process.env.SMTP_PORT)
   });
 
-  return nodemailer.createTransport({
+  const transporterConfig = {
     host: smtpConfig.host,
     port: smtpConfig.port,
     secure: smtpConfig.secure, // true for 465, false for other ports
@@ -91,15 +105,32 @@ const getTransporter = () => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS
     },
-    // Add connection timeout
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    // Add connection timeout (increased for Railway)
+    connectionTimeout: 30000, // 30 seconds
+    greetingTimeout: 30000,
+    socketTimeout: 30000,
     // Retry configuration
     pool: true,
     maxConnections: 1,
-    maxMessages: 3
+    maxMessages: 3,
+    // Additional options for better reliability
+    tls: {
+      // Do not fail on invalid certs (some providers have self-signed certs)
+      rejectUnauthorized: false,
+      // Use specific TLS version
+      minVersion: 'TLSv1.2'
+    }
+  };
+
+  console.log('📧 Creating email transporter with config:', {
+    host: transporterConfig.host,
+    port: transporterConfig.port,
+    secure: transporterConfig.secure,
+    authUser: transporterConfig.auth.user,
+    connectionTimeout: transporterConfig.connectionTimeout
   });
+
+  return nodemailer.createTransport(transporterConfig);
 };
 
 // Send password reset email
@@ -146,6 +177,29 @@ const sendPasswordResetEmail = async (email, resetToken) => {
         command: verifyError.command,
         response: verifyError.response
       });
+      
+      // If it's a connection timeout, the SMTP server is likely wrong
+      if (verifyError.code === 'ETIMEDOUT' || verifyError.message.includes('timeout')) {
+        const emailDomain = process.env.EMAIL_USER?.split('@')[1] || 'unknown';
+        console.error('❌ CONNECTION TIMEOUT - This usually means:');
+        console.error('   1. Wrong SMTP server (custom domain may not be Google Workspace)');
+        console.error('   2. SMTP server is blocking the connection');
+        console.error('   3. Network/firewall issue');
+        console.error('');
+        console.error('💡 SOLUTION: Set custom SMTP settings in Railway:');
+        console.error(`   SMTP_HOST=your-email-provider-smtp-server.com`);
+        console.error(`   SMTP_PORT=587 (or 465 for SSL)`);
+        console.error(`   SMTP_SECURE=false (or true for port 465)`);
+        console.error('');
+        console.error(`   For ${emailDomain}, check your email provider's SMTP settings:`);
+        console.error('   - Google Workspace: smtp.gmail.com:587');
+        console.error('   - Microsoft 365: smtp.office365.com:587');
+        console.error('   - Zoho: smtp.zoho.com:587');
+        console.error('   - SendGrid: smtp.sendgrid.net:587');
+        console.error('   - Mailgun: smtp.mailgun.org:587');
+        throw new Error(`SMTP connection timeout. Please configure SMTP_HOST and SMTP_PORT for ${emailDomain}. See logs for details.`);
+      }
+      
       // Don't throw here - continue with sending attempt
       // Some email providers might still work even if verify fails
       console.warn('⚠️ Continuing with email send despite verification failure');
@@ -199,6 +253,21 @@ const sendPasswordResetEmail = async (email, resetToken) => {
       responseMessage: error.responseMessage,
       stack: error.stack
     });
+    
+    // Provide helpful error messages for common issues
+    if (error.code === 'ETIMEDOUT') {
+      const emailDomain = process.env.EMAIL_USER?.split('@')[1] || 'unknown';
+      const errorMsg = `SMTP connection timeout for ${emailDomain}. ` +
+        `This usually means the SMTP server is incorrect. ` +
+        `Please set SMTP_HOST and SMTP_PORT environment variables in Railway.`;
+      console.error('💡 ' + errorMsg);
+      throw new Error(errorMsg);
+    } else if (error.code === 'EAUTH') {
+      const errorMsg = 'Email authentication failed. ' +
+        'For Gmail, make sure you\'re using an App Password, not your regular password.';
+      console.error('💡 ' + errorMsg);
+      throw new Error(errorMsg);
+    }
     
     // Log full error object for debugging
     console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error), 2));
