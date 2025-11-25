@@ -1,5 +1,5 @@
 const nodemailer = require('nodemailer');
-const fetch = require('node-fetch');
+// Node.js 20 has built-in fetch - no need to import
 
 // Check if email is configured
 // For SendGrid, EMAIL_USER is "apikey" and EMAIL_PASS is the API key
