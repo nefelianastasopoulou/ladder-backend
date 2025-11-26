@@ -11,7 +11,7 @@ const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const { sendPasswordResetEmail, isEmailConfigured } = require('../services/emailService');
 const logger = require('../utils/logger');
 const db = require('../database');
-const fetch = require('node-fetch');
+// Node.js v20+ has built-in fetch, no need to require node-fetch
 
 const router = express.Router();
 
