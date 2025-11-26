@@ -74,6 +74,13 @@ const schemas = {
           'string.email': 'Please enter a valid email address',
           'string.max': 'Email address is too long (maximum 255 characters)',
           'any.required': 'Email address is required'
+        }),
+      username: Joi.string().alphanum().min(3).max(30).required().trim().lowercase()
+        .messages({
+          'string.alphanum': 'Username can only contain letters and numbers',
+          'string.min': 'Username must be at least 3 characters long',
+          'string.max': 'Username is too long (maximum 30 characters)',
+          'any.required': 'Username is required'
         })
     }),
     

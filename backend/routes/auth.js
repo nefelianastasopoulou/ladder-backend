@@ -11,6 +11,7 @@ const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const { sendPasswordResetEmail, isEmailConfigured } = require('../services/emailService');
 const logger = require('../utils/logger');
 const db = require('../database');
+const fetch = require('node-fetch');
 
 const router = express.Router();
 
@@ -426,32 +427,35 @@ router.post('/signin', validate(schemas.user.signin), async (req, res) => {
 // Forgot password_hash
 router.post('/forgot-password', validate(schemas.user.forgotPassword), async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, username } = req.body;
 
-    // Check if user exists
-    const user = await db.query(
-      'SELECT id, email, username FROM users WHERE email = $1',
-      [email]
+    // Find user by both email AND username (username is unique, so this identifies the exact account)
+    const userResult = await db.query(
+      'SELECT id, email, username FROM users WHERE email = $1 AND username = $2',
+      [email, username.toLowerCase()]
     );
 
-    if (user.rows.length === 0) {
-      // Don't reveal if email exists or not for security
-      return sendSuccessResponse(res, 200, 'If the email exists, a password_hash reset link has been sent');
+    if (userResult.rows.length === 0) {
+      // Don't reveal if account exists or not for security
+      return sendSuccessResponse(res, 200, 'If an account exists with this email and username, a password reset link has been sent');
     }
 
-    // Generate reset token (in a real app, you'd send an email)
+    const user = userResult.rows[0];
+
+    // Generate reset token
     const resetToken = require('crypto').randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + 3600000); // 1 hour
 
     // Store reset token
     await db.query(
       'INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES ($1, $2, $3)',
-      [user.rows[0].id, resetToken, expiresAt]
+      [user.id, resetToken, expiresAt]
     );
 
     logger.info('Password reset token generated', {
-      userId: user.rows[0].id,
-      email: user.rows[0].email,
+      userId: user.id,
+      email: user.email,
+      username: user.username,
       ip: req.ip,
       token: resetToken.substring(0, 10) + '...' // Log partial token for debugging
     });
@@ -466,8 +470,8 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
         // Check if email is configured before attempting to send
         if (!isEmailConfigured()) {
           logger.error('Email service not configured - cannot send password reset email', {
-            userId: user.rows[0].id,
-            email: user.rows[0].email,
+            userId: user.id,
+            email: user.email,
             EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
             EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing'
           });
@@ -475,8 +479,8 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
           // In development mode, log the token so developers can test
           if (process.env.NODE_ENV !== 'production') {
             logger.warn('DEVELOPMENT MODE: Password reset token generated but email not sent', {
-              userId: user.rows[0].id,
-              email: user.rows[0].email,
+              userId: user.id,
+              email: user.email,
               resetToken: resetToken,
               resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
             });
@@ -486,31 +490,31 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
 
         // Send password reset email (with timeout)
         logger.info('Attempting to send password reset email', {
-          userId: user.rows[0].id,
-          email: user.rows[0].email,
+          userId: user.id,
+          email: user.email,
           emailUser: process.env.EMAIL_USER,
           emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown'
         });
         
         // Add timeout to email sending (15 seconds max)
-        const emailPromise = sendPasswordResetEmail(user.rows[0].email, resetToken);
+        const emailPromise = sendPasswordResetEmail(user.email, resetToken);
         const timeoutPromise = new Promise((_, reject) => {
           setTimeout(() => reject(new Error('Email sending timeout after 15 seconds')), 15000);
         });
         
         await Promise.race([emailPromise, timeoutPromise]);
         
-        logger.info('Password reset email sent successfully', {
-          userId: user.rows[0].id,
-          email: user.rows[0].email
-        });
-      } catch (emailError) {
-        // Log FULL error details including nested properties
-        logger.error('Failed to send password reset email - DETAILED ERROR:', {
-          userId: user.rows[0].id,
-          email: user.rows[0].email,
-          emailUser: process.env.EMAIL_USER,
-          emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown',
+          logger.info('Password reset email sent successfully', {
+            userId: user.id,
+            email: user.email
+          });
+        } catch (emailError) {
+          // Log FULL error details including nested properties
+          logger.error('Failed to send password reset email - DETAILED ERROR:', {
+            userId: user.id,
+            email: user.email,
+            emailUser: process.env.EMAIL_USER,
+            emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown',
           errorMessage: emailError.message,
           errorCode: emailError.code,
           errorCommand: emailError.command,
@@ -533,15 +537,15 @@ router.post('/forgot-password', validate(schemas.user.forgotPassword), async (re
           emailDomain: process.env.EMAIL_USER?.split('@')[1] || 'unknown'
         });
         
-        // In development mode, log the token so developers can test even if email fails
-        if (process.env.NODE_ENV !== 'production') {
-          logger.warn('DEVELOPMENT MODE: Password reset token (email failed but token available for testing)', {
-            userId: user.rows[0].id,
-            email: user.rows[0].email,
-            resetToken: resetToken,
-            resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
-          });
-        }
+          // In development mode, log the token so developers can test even if email fails
+          if (process.env.NODE_ENV !== 'production') {
+            logger.warn('DEVELOPMENT MODE: Password reset token (email failed but token available for testing)', {
+              userId: user.id,
+              email: user.email,
+              resetToken: resetToken,
+              resetLink: `${process.env.FRONTEND_URL || 'ladder://'}reset-password?token=${resetToken}`
+            });
+          }
       }
     });
 
@@ -771,6 +775,181 @@ router.post('/make-admin', authenticateToken, requireAdmin, async (req, res) => 
   } catch (error) {
     logger.error('Make admin failed:', error);
     sendErrorResponse(res, 500, 'Failed to promote user to admin');
+  }
+});
+
+/**
+ * Google OAuth Authentication
+ * POST /api/auth/google
+ * Body: { id_token, access_token, email, name, picture }
+ */
+router.post('/google', async (req, res) => {
+  try {
+    const { id_token, access_token, email, name, picture } = req.body;
+
+    if (!id_token && !access_token) {
+      return sendErrorResponse(res, 400, 'Google token is required');
+    }
+
+    // Verify the Google token by fetching user info
+    let googleUser;
+    try {
+      if (access_token) {
+        // Use access token to get user info
+        const userInfoResponse = await fetch(
+          `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token}`
+        );
+        
+        if (!userInfoResponse.ok) {
+          throw new Error('Failed to verify Google token');
+        }
+        
+        googleUser = await userInfoResponse.json();
+      } else if (id_token) {
+        // Verify ID token (more secure)
+        const tokenResponse = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${id_token}`
+        );
+        
+        if (!tokenResponse.ok) {
+          throw new Error('Failed to verify Google ID token');
+        }
+        
+        const tokenInfo = await tokenResponse.json();
+        
+        // Get user info using the verified token
+        const userInfoResponse = await fetch(
+          `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${access_token || ''}`
+        );
+        
+        if (userInfoResponse.ok) {
+          googleUser = await userInfoResponse.json();
+        } else {
+          // Fallback to token info
+          googleUser = {
+            email: tokenInfo.email,
+            name: tokenInfo.name,
+            picture: tokenInfo.picture,
+            id: tokenInfo.sub,
+          };
+        }
+      }
+    } catch (error) {
+      logger.error('Google token verification failed:', error);
+      return sendErrorResponse(res, 401, 'Invalid Google token');
+    }
+
+    if (!googleUser || !googleUser.email) {
+      return sendErrorResponse(res, 400, 'Unable to retrieve user information from Google');
+    }
+
+    // Use provided email or Google email
+    const userEmail = email || googleUser.email;
+    const userName = name || googleUser.name || googleUser.email.split('@')[0];
+    const userPicture = picture || googleUser.picture;
+
+    // Check if user already exists
+    let user = await db.query(
+      'SELECT id, email, username, full_name, role, is_active, created_at FROM users WHERE email = $1',
+      [userEmail]
+    );
+
+    if (user.rows.length > 0) {
+      // User exists, log them in
+      const userData = user.rows[0];
+
+      if (!userData.is_active) {
+        return sendErrorResponse(res, 401, 'Account is inactive');
+      }
+
+      // Update user picture if provided and different
+      if (userPicture && userPicture !== userData.avatar_url) {
+        await db.query(
+          'UPDATE users SET avatar_url = $1, updated_at = NOW() WHERE id = $2',
+          [userPicture, userData.id]
+        );
+      }
+
+      // Generate JWT token
+      const token = generateToken(userData.id);
+
+      logger.info('User logged in with Google', {
+        userId: userData.id,
+        email: userData.email,
+        username: userData.username,
+        ip: req.ip
+      });
+
+      return res.status(200).json({
+        user: {
+          id: userData.id,
+          email: userData.email,
+          username: userData.username,
+          full_name: userData.full_name,
+          role: userData.role,
+          created_at: userData.created_at
+        },
+        token
+      });
+    } else {
+      // New user, create account
+      // Generate a username from email if not provided
+      const baseUsername = userName.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 20);
+      let username = baseUsername;
+      let usernameExists = true;
+      let attempts = 0;
+
+      // Ensure username is unique
+      while (usernameExists && attempts < 10) {
+        const existingUser = await db.query(
+          'SELECT id FROM users WHERE username = $1',
+          [username]
+        );
+
+        if (existingUser.rows.length === 0) {
+          usernameExists = false;
+        } else {
+          username = `${baseUsername}${Math.floor(Math.random() * 1000)}`;
+          attempts++;
+        }
+      }
+
+      // Create new user (no password for OAuth users)
+      const newUser = await db.query(
+        `INSERT INTO users (email, password_hash, full_name, username, role, is_active, avatar_url, created_at)
+         VALUES ($1, NULL, $2, $3, 'user', true, $4, NOW())
+         RETURNING id, email, username, full_name, role, created_at`,
+        [userEmail, userName, username, userPicture]
+      );
+
+      const createdUser = newUser.rows[0];
+
+      // Generate JWT token
+      const token = generateToken(createdUser.id);
+
+      logger.info('User registered with Google', {
+        userId: createdUser.id,
+        email: createdUser.email,
+        username: createdUser.username,
+        ip: req.ip
+      });
+
+      return res.status(201).json({
+        user: {
+          id: createdUser.id,
+          email: createdUser.email,
+          username: createdUser.username,
+          full_name: createdUser.full_name,
+          role: createdUser.role,
+          created_at: createdUser.created_at
+        },
+        token
+      });
+    }
+
+  } catch (error) {
+    logger.error('Google authentication failed:', error);
+    sendErrorResponse(res, 500, 'Google authentication failed');
   }
 });
 
