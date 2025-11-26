@@ -206,7 +206,28 @@ const sendPasswordResetEmail = async (email, resetToken) => {
     
     console.log('Reset link:', resetLink);
 
-    const htmlContent = `
+    // For mobile apps, show the token prominently since custom URL schemes don't work in email
+    const isMobileAppLink = resetLink.startsWith('ladder://');
+    
+    const htmlContent = isMobileAppLink ? `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #4f46e5;">Password Reset Request</h2>
+        <p>You requested a password reset for your Ladder account.</p>
+        <p><strong>Please copy the reset token below and enter it in the Ladder app:</strong></p>
+        <div style="background-color: #f3f4f6; border: 2px solid #4f46e5; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+          <p style="margin: 0; font-size: 12px; color: #666; text-transform: uppercase; letter-spacing: 1px;">Reset Token</p>
+          <p style="margin: 10px 0 0 0; font-family: 'Courier New', monospace; font-size: 18px; font-weight: bold; color: #1f2937; word-break: break-all;">${resetToken}</p>
+        </div>
+        <p style="color: #666; font-size: 14px;">1. Open the Ladder app</p>
+        <p style="color: #666; font-size: 14px;">2. Go to "Reset Password" or "Enter Reset Token"</p>
+        <p style="color: #666; font-size: 14px;">3. Paste the token above</p>
+        <p style="color: #666; font-size: 14px;">4. Set your new password</p>
+        <p><strong style="color: #dc2626;">This token will expire in 1 hour.</strong></p>
+        <p style="color: #666; font-size: 12px;">If you didn't request this password reset, please ignore this email.</p>
+        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+        <p style="color: #666; font-size: 12px;">This email was sent from Ladder App. Please do not reply to this email.</p>
+      </div>
+    ` : `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
         <h2 style="color: #4f46e5;">Password Reset Request</h2>
         <p>You requested a password reset for your Ladder account.</p>
