@@ -140,7 +140,8 @@ router.put('/:id', authenticateToken, (req, res) => {
       return sendErrorResponse(res, 404, 'Post not found');
     }
 
-    if (result.rows[0].author_id !== userId) {
+    // Allow admins to update any post, or users to update their own
+    if (result.rows[0].author_id !== userId && !req.user.isAdmin && req.user.role !== 'admin') {
       return sendErrorResponse(res, 403, 'You can only update your own posts');
     }
 
@@ -207,7 +208,8 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return sendErrorResponse(res, 404, 'Post not found');
     }
 
-    if (result.rows[0].author_id !== userId) {
+    // Allow admins to delete any post, or users to delete their own
+    if (result.rows[0].author_id !== userId && !req.user.isAdmin && req.user.role !== 'admin') {
       return sendErrorResponse(res, 403, 'You can only delete your own posts');
     }
 
@@ -372,7 +374,8 @@ router.delete('/:postId/comments/:commentId', authenticateToken, (req, res) => {
       return sendErrorResponse(res, 404, 'Comment not found');
     }
 
-    if (result.rows[0].author_id !== userId) {
+    // Allow admins to delete any comment, or users to delete their own
+    if (result.rows[0].author_id !== userId && !req.user.isAdmin && req.user.role !== 'admin') {
       return sendErrorResponse(res, 403, 'You can only delete your own comments');
     }
 

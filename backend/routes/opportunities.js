@@ -165,7 +165,8 @@ router.put('/:id', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Opportunity not found' });
     }
 
-    if (result.rows[0].created_by !== userId) {
+    // Allow admins to update any opportunity, or users to update their own
+    if (result.rows[0].created_by !== userId && !req.user.isAdmin && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'You can only update your own opportunities' });
     }
 
@@ -275,7 +276,8 @@ router.delete('/:id', authenticateToken, (req, res) => {
       return res.status(404).json({ error: 'Opportunity not found' });
     }
 
-    if (result.rows[0].created_by !== userId) {
+    // Allow admins to delete any opportunity, or users to delete their own
+    if (result.rows[0].created_by !== userId && !req.user.isAdmin && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'You can only delete your own opportunities' });
     }
 
