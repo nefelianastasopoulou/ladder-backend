@@ -6,6 +6,23 @@ const { sendSuccessResponse, sendErrorResponse } = require('../utils/response');
 const logger = require('../utils/logger');
 const { filterContentByPrivacy } = require('../utils/privacy');
 
+// Helper function to parse category (supports both JSON array and single string for backward compatibility)
+const parseCategory = (categoryValue) => {
+  if (!categoryValue) return null;
+  try {
+    // Try to parse as JSON array
+    const parsed = JSON.parse(categoryValue);
+    if (Array.isArray(parsed)) {
+      return parsed;
+    }
+    // If it's not an array, return as single-item array
+    return [parsed];
+  } catch (e) {
+    // If parsing fails, treat as single category string
+    return [categoryValue];
+  }
+};
+
 // Get all opportunities with privacy filtering
 router.get('/', authenticateToken, async (req, res) => {
   const viewerId = req.user.id;
@@ -30,9 +47,17 @@ router.get('/', authenticateToken, async (req, res) => {
         return res.status(500).json({ error: 'Failed to fetch opportunities' });
       }
 
+      // Parse categories for each opportunity
+      const opportunities = result.rows.map(opp => ({
+        ...opp,
+        category: parseCategory(opp.category),
+        // Keep original category for backward compatibility
+        category_display: parseCategory(opp.category)?.[0] || opp.category
+      }));
+
       // Return all opportunities without privacy filtering
       // Privacy filtering should only apply to profile pages, not the main feed
-      res.json(result.rows);
+      res.json(opportunities);
     });
   } catch (error) {
     console.error('Error in privacy filtering:', error);
@@ -61,7 +86,15 @@ router.get('/my', authenticateToken, (req, res) => {
       return res.status(500).json({ error: 'Failed to fetch your opportunities' });
     }
 
-    res.json(result.rows);
+    // Parse categories for each opportunity
+    const opportunities = result.rows.map(opp => ({
+      ...opp,
+      category: parseCategory(opp.category),
+      // Keep original category for backward compatibility
+      category_display: parseCategory(opp.category)?.[0] || opp.category
+    }));
+
+    res.json(opportunities);
   });
 });
 
@@ -69,7 +102,7 @@ router.get('/my', authenticateToken, (req, res) => {
 router.post('/', authenticateToken, (req, res) => {
   const userId = req.user.id;
   const {
-    title, description, category, location, field, image_url, image_key,
+    title, description, category, categories, location, field, image_url, image_key,
     deadline, requirements, contact_info, application_url, is_external_application,
     allow_questions, social_media_urls
   } = req.body;
@@ -77,6 +110,16 @@ router.post('/', authenticateToken, (req, res) => {
   // Validate required fields
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
+  }
+
+  // Handle categories: support both single category (backward compat) and array
+  let categoryValue = null;
+  if (categories && Array.isArray(categories) && categories.length > 0) {
+    // New format: array of categories
+    categoryValue = JSON.stringify(categories);
+  } else if (category) {
+    // Old format: single category string, convert to array for consistency
+    categoryValue = JSON.stringify([category]);
   }
 
   const query = `
@@ -92,7 +135,7 @@ router.post('/', authenticateToken, (req, res) => {
   `;
 
   const values = [
-    title, description, category, location, field, image_url, image_key,
+    title, description, categoryValue, location, field, image_url, image_key,
     deadline, requirements, contact_info, application_url,
     is_external_application || false, 
     allow_questions !== undefined ? allow_questions : true,
@@ -139,7 +182,15 @@ router.get('/:id', (req, res) => {
       return res.status(404).json({ error: 'Opportunity not found' });
     }
 
-    res.json(result.rows[0]);
+    // Parse categories
+    const opportunity = {
+      ...result.rows[0],
+      category: parseCategory(result.rows[0].category),
+      // Keep original category for backward compatibility
+      category_display: parseCategory(result.rows[0].category)?.[0] || result.rows[0].category
+    };
+
+    res.json(opportunity);
   });
 });
 
@@ -148,7 +199,7 @@ router.put('/:id', authenticateToken, (req, res) => {
   const opportunityId = req.params.id;
   const userId = req.user.id;
   const {
-    title, description, category, location, field, image_url,
+    title, description, category, categories, location, field, image_url,
     deadline, requirements, contact_info, application_url, is_external_application,
     allow_questions, social_media_urls
   } = req.body;
@@ -183,9 +234,20 @@ router.put('/:id', authenticateToken, (req, res) => {
       updateFields.push(`description = $${paramCount++}`);
       values.push(description);
     }
-    if (category) {
-      updateFields.push(`category = $${paramCount++}`);
-      values.push(category);
+    // Handle categories: support both single category (backward compat) and array
+    if (categories !== undefined || category !== undefined) {
+      let categoryValue = null;
+      if (categories && Array.isArray(categories) && categories.length > 0) {
+        // New format: array of categories
+        categoryValue = JSON.stringify(categories);
+      } else if (category) {
+        // Old format: single category string, convert to array for consistency
+        categoryValue = JSON.stringify([category]);
+      }
+      if (categoryValue) {
+        updateFields.push(`category = $${paramCount++}`);
+        values.push(categoryValue);
+      }
     }
     if (location) {
       updateFields.push(`location = $${paramCount++}`);
