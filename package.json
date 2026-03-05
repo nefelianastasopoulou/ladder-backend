@@ -101,7 +101,7 @@
     "node": ">=20.0.0"
   },
   "overrides": {
-    "react-server-dom-webpack": "^19.0.2"
+    "react-server-dom-webpack": ">=19.0.2"
   },
   "private": true
 }
